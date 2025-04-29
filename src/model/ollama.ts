@@ -1,6 +1,6 @@
-import { Context, Message, Model, ModelFactory } from "./types.ts";
+import { Context, Message, Model } from "./types.ts";
 
-export class OllamaModel implements Model {
+class OllamaModel implements Model {
   private name: string;
   private context: Context;
 
@@ -54,18 +54,6 @@ export class OllamaModel implements Model {
   }
 }
 
-class OllamaModelFactory implements ModelFactory {
-  public modelName: string;
-
-  constructor(modelName: string) {
-    this.modelName = modelName;
-  }
-
-  createModel(): Model | undefined {
-    return new OllamaModel(this.modelName);
-  }
-}
-
 export const ollamaModel = (
   name: string,
   description: string,
@@ -73,6 +61,6 @@ export const ollamaModel = (
 ) => ({
   name,
   description,
-  factory: new OllamaModelFactory(name),
+  factory: () => new OllamaModel(name),
   contextSize,
 });

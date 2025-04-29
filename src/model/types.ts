@@ -1,7 +1,3 @@
-export interface ModelFactory {
-  createModel(): Model | undefined;
-}
-
 export interface Model {
   systemMessage(message: string): void;
   generateResponse(prompt: string): Promise<string>;
@@ -11,7 +7,7 @@ export interface Model {
 export type ModelDescription = {
   name: string;
   description: string;
-  factory: ModelFactory;
+  factory: () => Model;
   contextSize: number;
 };
 

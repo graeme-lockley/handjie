@@ -13,7 +13,7 @@ class ModelManager {
   }
 
   public newModel(name: string): Model | undefined {
-    return this.getModelByName(name)?.factory?.createModel();
+    return this.getModelByName(name)?.factory();
   }
 }
 
