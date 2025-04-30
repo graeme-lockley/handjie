@@ -19,7 +19,7 @@ class ModelManager {
 
 const modelManager = new ModelManager([
   ollamaModel(
-    "qwq.1:latest",
+    "qwq:latest",
     "An efficient model optimized for rapid conversational responses. Strengths include fast inference and concise, contextually relevant replies, ideal for lightweight, agent-based interactions. However, it tends to struggle with nuanced instructions, complex reasoning tasks, and maintaining context over extended dialogues.",
     131000,
   ),
