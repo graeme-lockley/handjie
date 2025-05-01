@@ -1,19 +1,12 @@
-import { Context, Message, Model } from "./types.ts";
+import { Message, Model } from "./types.ts";
+import { BaseModel } from "./base.ts";
 
-class OllamaModel implements Model {
+class OllamaModel extends BaseModel implements Model {
   private name: string;
-  private context: Context;
 
   constructor(name: string) {
+    super();
     this.name = name;
-    this.context = [];
-  }
-
-  public systemMessage(message: string): void {
-    this.context.push({
-      role: "system",
-      content: message,
-    });
   }
 
   public getModelName(): string {
@@ -24,6 +17,10 @@ class OllamaModel implements Model {
     const newMessage: Message = { role: "user", content: prompt };
     this.context.push(newMessage);
 
+    // If we have a system message and it's not already in the context, add it to the beginning
+    const hasSystemMessage = this.context.some((msg) => msg.role === "system");
+    const messages = hasSystemMessage ? [...this.context] : [{ role: "system", content: this.systemMessage_ }, ...this.context];
+
     const response = await fetch("http://localhost:11434/api/chat", {
       method: "POST",
       headers: {
@@ -31,7 +28,7 @@ class OllamaModel implements Model {
       },
       body: JSON.stringify({
         model: this.name,
-        messages: this.context,
+        messages: messages,
         stream: false,
       }),
     });

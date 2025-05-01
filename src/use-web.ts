@@ -2,22 +2,5 @@
 
 import { Agent } from "./agent/index.ts";
 
-/**
- * WebAgent - Specialized agent for web operations
- */
-class WebAgent extends Agent {
-  constructor(modelName: string = "llama3.1:latest") {
-    super("Fred", modelName);
-  }
-
-  /**
-   * Provides the initial prompt for the web agent
-   */
-  protected getInitialPrompt(): string {
-    return `My project home is ${Deno.cwd()}.  Please look at www.news24.com, pull out the top 5 headlines and save them into headlines.md.`;
-  }
-}
-
-// Create and run the web agent
-const webAgent = new WebAgent();
-await webAgent.run();
+const webAgent = new Agent("Fred", "llama3.1:latest");
+await webAgent.prompt(`My project home is ${Deno.cwd()}.  Please look at www.news24.com, pull out the top 5 headlines and save them into headlines.md.`);

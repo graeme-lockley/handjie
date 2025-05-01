@@ -1,21 +1,20 @@
-import { Context, Message, Model } from "./types.ts";
+import { Message, Model } from "./types.ts";
 import { Anthropic } from "npm:@anthropic-ai/sdk";
+import { BaseModel } from "./base.ts";
 
-class ClaudeModel implements Model {
+class ClaudeModel extends BaseModel implements Model {
   private name: string;
   private apiKey: string;
-  private context: Context;
   private client: Anthropic;
   private modelId: string;
   private temperature: number;
   private maxTokens: number;
-  private systemMsg: string | undefined;
 
   constructor(name: string, properties?: Record<string, unknown>) {
+    super();
     this.name = name;
     this.apiKey = properties?.apiKey as string ||
       Deno.env.get("ANTHROPIC_API_KEY") || "";
-    this.context = [];
     this.client = new Anthropic({
       apiKey: this.apiKey,
     });
@@ -25,10 +24,6 @@ class ClaudeModel implements Model {
       "claude-3-7-sonnet-20250219";
     this.temperature = properties?.temperature as number || 0.0;
     this.maxTokens = properties?.maxTokens as number || 1024;
-  }
-
-  public systemMessage(message: string): void {
-    this.systemMsg = message;
   }
 
   public getModelName(): string {
@@ -43,7 +38,7 @@ class ClaudeModel implements Model {
       const response = await this.client.messages.create({
         model: this.modelId,
         messages: this.context,
-        system: this.systemMsg,
+        system: this.systemMessage_,
         temperature: this.temperature,
         max_tokens: this.maxTokens,
       });

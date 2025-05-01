@@ -1,7 +1,8 @@
-import { type Model, type ModelDescription } from "./types.ts";
+import { type Context, type Message, type Model, type ModelDescription } from "./types.ts";
 import { ollamaModel } from "./ollama.ts";
 import { claudeModel } from "./claude.ts";
-export { type Model, type ModelDescription } from "./types.ts";
+export { type Context, type Message, type Model, type ModelDescription } from "./types.ts";
+export { BaseModel } from "./base.ts";
 
 class ModelManager {
   private models: ModelDescription[];

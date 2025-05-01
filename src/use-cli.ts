@@ -2,22 +2,7 @@
 
 import { Agent } from "./agent/index.ts";
 
-/**
- * WebAgent - Specialized agent for web operations
- */
-class CodeReview extends Agent {
-  constructor(modelName: string = "claude-3.5-sonnet") {
-    super("Fred", modelName);
-  }
-
-  /**
-   * Provides the initial prompt for the web agent
-   */
-  protected getInitialPrompt(): string {
-    return `My project home is ${Deno.cwd()}/..\nPlease refactor ./src/agent/index.ts by replacing the method "getInitialPrompt" when a single "prompt" method.  Update all of the use-*.ts files to use this.`;
-  }
-}
-
-// Create and run the web agent
-const webAgent = new CodeReview();
-await webAgent.run();
+const webAgent = new Agent("Fred", "claude-3.5-sonnet");
+await webAgent.prompt(
+  `My project home is ${Deno.cwd()}/..\nPlease look at the code contained in src/agent/index.ts and review the code base. I would like to know whether there are any design or logical issues.`,
+);
