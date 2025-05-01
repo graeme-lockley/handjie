@@ -19,7 +19,7 @@ class ModelManager {
   }
 }
 
-export const models = new ModelManager([
+const models = new ModelManager([
   ollamaModel(
     "qwq:latest",
     "An efficient model optimized for rapid conversational responses. Strengths include fast inference and concise, contextually relevant replies, ideal for lightweight, agent-based interactions. However, it tends to struggle with nuanced instructions, complex reasoning tasks, and maintaining context over extended dialogues.",
@@ -64,4 +64,6 @@ export const models = new ModelManager([
   ),
 ]);
 
-export default models;
+export function newModel(name: string): Model | undefined {
+  return models.newModel(name);
+}

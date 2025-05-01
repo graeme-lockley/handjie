@@ -7,7 +7,7 @@ import { tools } from "./tools/index.ts";
  * WebAgent - Specialized agent for web operations
  */
 class WebAgent extends Agent {
-  constructor(modelName: string = "qwen2.5-coder:14b") {
+  constructor(modelName: string = "deepseek-r1:14b") {
     super(modelName, tools);
   }
 

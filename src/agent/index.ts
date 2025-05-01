@@ -1,27 +1,28 @@
 import * as LLM from "../model/index.ts";
-import * as Tools  from "../tools/index.ts";
+import { Tool } from "../tools/types.ts";
 import { systemContext } from "./system-context.ts";
 import { debugPrefix, info } from "../lib/cli.ts";
+import { ResponseParser } from "./response-parser.ts";
 
 /**
  * Abstract Agent class that provides the core functionality for all specialized agents
  */
 export abstract class Agent {
   protected model: LLM.Model;
-  protected tools: Tools.Tool[];
+  protected tools: Tool[];
   
   /**
    * Constructor to initialize an agent with a model and tools
    * @param modelName The name of the model to use
    * @param tools Array of tools the agent can use
    */
-  constructor(modelName: string, tools: Tools.Tool[] | undefined = undefined) {
-    this.model = LLM.models.newModel(modelName)!;
-    this.tools = tools || Tools.tools;
+  constructor(modelName: string, tools: Tool[]) {
+    this.model = LLM.newModel(modelName)!;
+    this.tools = tools;
     
     // Set up the system context for the model
     this.model.systemMessage(
-      systemContext(this.tools).join("\n"),
+      systemContext(tools).join("\n"),
     );
   }
   
@@ -46,42 +47,37 @@ export abstract class Agent {
       debugPrefix(this.model.getModelName(), answer);
 
       try {
-        const jsonAnswer = JSON.parse(answer);
+        // Parse the response using the ResponseParser
+        const parser = new ResponseParser(answer);
         
         // Handle response messages
-        if (jsonAnswer?.response?.message != undefined) {
-          console.log(jsonAnswer.response.message);
+        const responseMessage = parser.getResponseMessage();
+        if (responseMessage) {
+          console.log(responseMessage);
         }
 
         // Handle tool usage
-        if (
-          jsonAnswer.use_tool?.identifier != undefined &&
-          jsonAnswer.use_tool.identifier !== ""
-        ) {
-          answer = await this.processTool(jsonAnswer);
+        const toolUsage = parser.getToolUsage();
+        if (toolUsage) {
+          answer = await this.processTool(toolUsage);
         } 
         // Handle task completion
-        else if (jsonAnswer.task_completed) {
+        else if (parser.isTaskCompleted()) {
           info("Task completed.");
           break;
         } 
-        // Handle non-object responses
-        else if (typeof jsonAnswer !== "object") {
-          console.log(jsonAnswer);
-          answer = await this.model.generateResponse("Please continue.");
-        } 
-        // Handle any other responses
+        // Handle any other responses, including non-object and plain text
         else {
           console.log(answer);
           answer = await this.model.generateResponse("Please continue.");
         }
       } catch (e: any) {
         // Handle JSON parsing errors
-        debugPrefix(this.model.getModelName(), `Error parsing JSON: ${e}`);
+        debugPrefix(this.model.getModelName(), `Error parsing response: ${e}`);
         debugPrefix(this.model.getModelName(), answer);
 
         answer = await this.model.generateResponse(
-          `Error parsing JSON: ${e.message}. Please provide a valid JSON response.`,
+          `Error parsing response: ${e.message}. Please provide a valid JSON response.`,
         );
       }
     }
@@ -89,13 +85,17 @@ export abstract class Agent {
   
   /**
    * Processes a tool execution request
-   * @param jsonAnswer The parsed JSON response containing the tool request
+   * @param toolUsage The tool usage information
    * @returns The model's response after tool execution
    */
-  private async processTool(jsonAnswer: any): Promise<string> {
-    const toolIdentifier = jsonAnswer.use_tool.identifier;
-    const functionName = jsonAnswer.use_tool.function_name;
-    const args = jsonAnswer.use_tool.args;
+  private async processTool(toolUsage: {
+    identifier: string;
+    function_name: string;
+    args: any[];
+  }): Promise<string> {
+    const toolIdentifier = toolUsage.identifier;
+    const functionName = toolUsage.function_name;
+    const args = toolUsage.args;
     
     // Find the requested tool
     const tool = this.tools.find((t) => t.identifier === toolIdentifier);

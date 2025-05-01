@@ -1,6 +1,10 @@
 import chalk from "npm:chalk";
 
-const DEBUG = true || Deno.env.DEBUG === "true";
+// Type declaration for chalk function
+type ChalkFunction = (text: string) => string;
+
+// Fix DEBUG environment variable access
+const DEBUG = true || Deno.env.get("DEBUG") === "true";
 
 export function debugging(): boolean {
   return DEBUG;
@@ -25,7 +29,7 @@ function toString(value: any): string {
 /**
  * Helper function to format arguments with specified color
  */
-function formatArgs(args: any[], color: chalk.ChalkFunction): string[] {
+function formatArgs(args: any[], color: ChalkFunction): string[] {
   return args.map((arg) => {
     if (arg === null || arg === undefined) {
       return color("");
