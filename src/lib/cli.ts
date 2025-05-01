@@ -1,9 +1,25 @@
 import chalk from "npm:chalk";
 
-const DEBUG = false || Deno.env.DEBUG === "true";
+const DEBUG = true || Deno.env.DEBUG === "true";
 
 export function debugging(): boolean {
   return DEBUG;
+}
+
+function toString(value: any): string {
+  if (value === null || value === undefined) {
+    return "";
+  }
+
+  if (typeof value === "object") {
+    try {
+      return JSON.stringify(value, null, 2);
+    } catch (e) {
+      return String(value);
+    }
+  }
+
+  return String(value);
 }
 
 /**
@@ -24,9 +40,11 @@ export function debug(...args: any[]) {
   }
 }
 
-export function debugPrefix(prefix: string, ...args: any[]) {
+export function debugPrefix(prefix: string, message: any) {
   if (DEBUG) {
-    console.log(chalk.gray(prefix), ...formatArgs(args, chalk.gray));
+    toString(message).split("\n").forEach((line) => {
+      console.log(chalk.gray(prefix), line);
+    });
   }
 }
 
