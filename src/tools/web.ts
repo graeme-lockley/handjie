@@ -83,7 +83,7 @@ class WebTool extends Tool {
   ): Promise<string> {
     try {
       infoPrefix("Tool:web", `Making ${method} request to: ${url}`);
-      
+
       // Parse headers if provided
       let parsedHeaders: Record<string, string> = {};
       try {
@@ -105,10 +105,10 @@ class WebTool extends Tool {
 
       // Make the request
       const response = await fetch(url, options);
-      
+
       // Get response content type
       const contentType = response.headers.get("content-type") || "";
-      
+
       // Parse response based on content type
       let responseData: string;
       if (contentType.includes("application/json")) {
@@ -129,12 +129,12 @@ class WebTool extends Tool {
   async fetchHtml(url: string): Promise<string> {
     try {
       infoPrefix("Tool:web", `Fetching HTML from: ${url}`);
-      
+
       const response = await fetch(url);
       if (!response.ok) {
         return `Error fetching HTML: ${response.status} ${response.statusText}`;
       }
-      
+
       const html = await response.text();
       return html;
     } catch (err: any) {
@@ -146,76 +146,78 @@ class WebTool extends Tool {
   async fetchMarkdown(url: string): Promise<string> {
     try {
       infoPrefix("Tool:web", `Fetching and converting to Markdown: ${url}`);
-      
+
       // First fetch the HTML
       const response = await fetch(url);
       if (!response.ok) {
         return `Error fetching page: ${response.status} ${response.statusText}`;
       }
-      
+
       const html = await response.text();
-      
+
       // Basic HTML to Markdown conversion
       // This is a simple implementation - for production, consider using a proper HTML-to-Markdown library
       const markdown = html
         // Strip scripts, styles, and other non-content elements
-        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
-        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
-        .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, '')
-        
+        .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, "")
+        .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, "")
+        .replace(/<svg\b[^<]*(?:(?!<\/svg>)<[^<]*)*<\/svg>/gi, "")
         // Convert headings
-        .replace(/<h1[^>]*>(.*?)<\/h1>/gi, '# $1\n\n')
-        .replace(/<h2[^>]*>(.*?)<\/h2>/gi, '## $1\n\n')
-        .replace(/<h3[^>]*>(.*?)<\/h3>/gi, '### $1\n\n')
-        .replace(/<h4[^>]*>(.*?)<\/h4>/gi, '#### $1\n\n')
-        .replace(/<h5[^>]*>(.*?)<\/h5>/gi, '##### $1\n\n')
-        .replace(/<h6[^>]*>(.*?)<\/h6>/gi, '###### $1\n\n')
-        
+        .replace(/<h1[^>]*>(.*?)<\/h1>/gi, "# $1\n\n")
+        .replace(/<h2[^>]*>(.*?)<\/h2>/gi, "## $1\n\n")
+        .replace(/<h3[^>]*>(.*?)<\/h3>/gi, "### $1\n\n")
+        .replace(/<h4[^>]*>(.*?)<\/h4>/gi, "#### $1\n\n")
+        .replace(/<h5[^>]*>(.*?)<\/h5>/gi, "##### $1\n\n")
+        .replace(/<h6[^>]*>(.*?)<\/h6>/gi, "###### $1\n\n")
         // Convert paragraphs
-        .replace(/<p[^>]*>(.*?)<\/p>/gi, '$1\n\n')
-        
+        .replace(/<p[^>]*>(.*?)<\/p>/gi, "$1\n\n")
         // Convert bold and italic
-        .replace(/<strong[^>]*>(.*?)<\/strong>/gi, '**$1**')
-        .replace(/<b[^>]*>(.*?)<\/b>/gi, '**$1**')
-        .replace(/<em[^>]*>(.*?)<\/em>/gi, '*$1*')
-        .replace(/<i[^>]*>(.*?)<\/i>/gi, '*$1*')
-        
+        .replace(/<strong[^>]*>(.*?)<\/strong>/gi, "**$1**")
+        .replace(/<b[^>]*>(.*?)<\/b>/gi, "**$1**")
+        .replace(/<em[^>]*>(.*?)<\/em>/gi, "*$1*")
+        .replace(/<i[^>]*>(.*?)<\/i>/gi, "*$1*")
         // Convert links
-        .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
-        
+        .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, "[$2]($1)")
         // Convert lists
-        .replace(/<ul[^>]*>(.*?)<\/ul>/gis, function(_match: string, content: string) {
-          return content.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n');
-        })
-        .replace(/<ol[^>]*>(.*?)<\/ol>/gis, function(_match: string, content: string) {
-          let index = 1;
-          return content.replace(/<li[^>]*>(.*?)<\/li>/gi, function(_match: string, item: string) {
-            return `${index++}. ${item}\n`;
-          });
-        })
-        
+        .replace(
+          /<ul[^>]*>(.*?)<\/ul>/gis,
+          function (_match: string, content: string) {
+            return content.replace(/<li[^>]*>(.*?)<\/li>/gi, "- $1\n");
+          },
+        )
+        .replace(
+          /<ol[^>]*>(.*?)<\/ol>/gis,
+          function (_match: string, content: string) {
+            let index = 1;
+            return content.replace(
+              /<li[^>]*>(.*?)<\/li>/gi,
+              function (_match: string, item: string) {
+                return `${index++}. ${item}\n`;
+              },
+            );
+          },
+        )
         // Convert code blocks
-        .replace(/<pre[^>]*><code[^>]*>(.*?)<\/code><\/pre>/gis, '```\n$1\n```\n\n')
-        .replace(/<code[^>]*>(.*?)<\/code>/gi, '`$1`')
-        
+        .replace(
+          /<pre[^>]*><code[^>]*>(.*?)<\/code><\/pre>/gis,
+          "```\n$1\n```\n\n",
+        )
+        .replace(/<code[^>]*>(.*?)<\/code>/gi, "`$1`")
         // Convert horizontal rules
-        .replace(/<hr[^>]*>/gi, '\n---\n\n')
-        
+        .replace(/<hr[^>]*>/gi, "\n---\n\n")
         // Remove remaining HTML tags
-        .replace(/<[^>]*>/g, '')
-        
+        .replace(/<[^>]*>/g, "")
         // Decode HTML entities
-        .replace(/&nbsp;/g, ' ')
-        .replace(/&amp;/g, '&')
-        .replace(/&lt;/g, '<')
-        .replace(/&gt;/g, '>')
+        .replace(/&nbsp;/g, " ")
+        .replace(/&amp;/g, "&")
+        .replace(/&lt;/g, "<")
+        .replace(/&gt;/g, ">")
         .replace(/&quot;/g, '"')
         .replace(/&#39;/g, "'")
-        
         // Fix up multiple newlines
-        .replace(/\n\s*\n\s*\n/g, '\n\n')
+        .replace(/\n\s*\n\s*\n/g, "\n\n")
         .trim();
-      
+
       return markdown;
     } catch (err: any) {
       infoPrefix("Tool:web", `Error converting to Markdown: ${err.message}`);

@@ -59,3 +59,12 @@ export function info(...args: any[]) {
 export function infoPrefix(prefix: string, ...args: any[]) {
   console.log(chalk.blue(prefix), ...formatArgs(args, chalk.gray));
 }
+
+export function response(name: string, ...args: any[]) {
+  args.forEach((arg) => {
+    const message = toString(arg);
+    message.split("\n").forEach((line) => {
+      console.log(chalk.green(name), line);
+    });
+  });
+}

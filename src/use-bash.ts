@@ -1,14 +1,13 @@
 #!/usr/bin/env deno run --allow-all
 
 import { Agent } from "./agent/index.ts";
-import { tools } from "./tools/index.ts";
 
 /**
  * BashAgent - Specialized agent for bash operations
  */
 class BashAgent extends Agent {
   constructor(modelName: string = "claude-3.5-sonnet") {
-    super(modelName, tools);
+    super("Fred", modelName);
   }
 
   /**

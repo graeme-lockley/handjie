@@ -1,0 +1,36 @@
+{
+  "tasks": [
+    {
+      "id": "99233d29-d829-416e-8c02-96df05bf7f83",
+      "description": "Analyze the task: Fetch top 5 headlines from news24.com and save to headlines.md",
+      "status": "pending",
+      "createdAt": "2025-05-01T10:55:03.364Z"
+    },
+    {
+      "id": "1679ab0d-08c3-436a-9cf8-141af2b96f0a",
+      "description": "Fetch the HTML content from www.news24.com",
+      "status": "pending",
+      "createdAt": "2025-05-01T10:55:05.580Z"
+    },
+    {
+      "id": "1e76388f-72cd-46fb-bd6f-88eb0240963e",
+      "description": "Extract the top 5 headlines from the fetched content",
+      "status": "pending",
+      "createdAt": "2025-05-01T10:55:07.898Z"
+    },
+    {
+      "id": "b7a4a0c5-c2d0-49ed-9cfa-6adc43065549",
+      "description": "Format the headlines in markdown format",
+      "status": "pending",
+      "createdAt": "2025-05-01T10:55:10.568Z"
+    },
+    {
+      "id": "7f1d4e35-0892-4e5d-99bb-4e5f1541229e",
+      "description": "Save the formatted headlines to headlines.md in the project directory",
+      "status": "pending",
+      "createdAt": "2025-05-01T10:55:13.309Z"
+    }
+  ],
+  "facts": {},
+  "updatedAt": "2025-05-01T10:55:13.309Z"
+}

@@ -17,8 +17,7 @@ class Calculator extends Tool {
       arguments: [
         {
           name: "expression",
-          description:
-            "JavaScript expression to evaluate, for example: (20 + 2) / 7",
+          description: "JavaScript expression to evaluate, for example: (20 + 2) / 7",
           dataType: "string",
         },
       ],

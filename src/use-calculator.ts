@@ -1,14 +1,13 @@
 #!/usr/bin/env deno run --allow-net --allow-env
 
 import { Agent } from "./agent/index.ts";
-import { tools } from "./tools/index.ts";
 
 /**
  * CalculatorAgent - Specialized agent for calculation operations
  */
 class CalculatorAgent extends Agent {
   constructor(modelName: string = "claude-3.5-sonnet") {
-    super(modelName, tools);
+    super("Fred", modelName);
   }
 
   /**
