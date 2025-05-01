@@ -1,4 +1,5 @@
 import { Tool } from "./types.ts";
+import { infoPrefix } from "./../lib/cli.ts";
 
 class Calculator extends Tool {
   name = "Calculator";
@@ -32,9 +33,7 @@ class Calculator extends Tool {
   async evaluate(expression: string) {
     const result = eval(expression);
 
-    console.log(
-      `Tool:calculator.calculate: (expression = ${expression}) -> ${result}`,
-    );
+    infoPrefix("Tool:calculator", `calculate: (${expression}) -> ${result}`);
 
     return result;
   }

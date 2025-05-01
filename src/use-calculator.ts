@@ -3,13 +3,12 @@
 import LLM from "./model/index.ts";
 import { tools } from "./tools/index.ts";
 import { systemContext } from "./agent/system-context.ts";
+import { debugPrefix, info } from "./lib/cli.ts";
 
 const DEBUG = true;
 
 async function main() {
   const model = LLM.newModel("claude-3.5-sonnet")!;
-
-  console.log(`Connecting to ${model.getModelName()}...`);
 
   model.systemMessage(
     systemContext(tools).join("\n"),
@@ -21,9 +20,9 @@ async function main() {
 
   while (true) {
     if (DEBUG) {
-      console.log(`\n--- Answer from ${model.getModelName()} ---`);
-      console.log(answer);
-      console.log("---------------------------");
+      answer.split("\n").forEach((line) => {
+        debugPrefix(model.getModelName(), line);
+      });
     }
 
     try {
@@ -63,7 +62,7 @@ async function main() {
           );
         }
       } else if (jsonAnswer.task_completed) {
-        console.log("Task completed.");
+        info("Task completed.");
         break;
       } else if (typeof jsonAnswer !== "object") {
         console.log(jsonAnswer);
