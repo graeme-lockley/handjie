@@ -8,7 +8,6 @@ export type ModelDescription = {
   name: string;
   description: string;
   factory: () => Model;
-  contextSize: number;
   properties?: Record<string, unknown>;
 };
 

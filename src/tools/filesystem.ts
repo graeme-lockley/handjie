@@ -120,7 +120,7 @@ class FileSystemTool extends Tool {
       infoPrefix("Tool:filesystem", `Reading file: ${filePath}`);
       const data = await Deno.readTextFile(filePath);
       return data;
-    } catch (err) {
+    } catch (err: any) {
       infoPrefix("Tool:filesystem", `Error reading file: ${err.message}`);
       return `Error reading file: ${err.message}`;
     }
@@ -131,7 +131,7 @@ class FileSystemTool extends Tool {
       infoPrefix("Tool:filesystem", `Writing to file: ${filePath}`);
       await Deno.writeTextFile(filePath, content);
       return `Successfully wrote to file: ${filePath}`;
-    } catch (err) {
+    } catch (err: any) {
       infoPrefix("Tool:filesystem", `Error writing to file: ${err.message}`);
       return `Error writing to file: ${err.message}`;
     }
@@ -142,7 +142,7 @@ class FileSystemTool extends Tool {
       infoPrefix("Tool:filesystem", `Deleting file: ${filePath}`);
       await Deno.remove(filePath);
       return `Successfully deleted file: ${filePath}`;
-    } catch (err) {
+    } catch (err: any) {
       infoPrefix("Tool:filesystem", `Error deleting file: ${err.message}`);
       return `Error deleting file: ${err.message}`;
     }
@@ -153,7 +153,7 @@ class FileSystemTool extends Tool {
       infoPrefix("Tool:filesystem", `Creating directory: ${dirPath}`);
       await Deno.mkdir(dirPath, { recursive: true });
       return `Successfully created directory: ${dirPath}`;
-    } catch (err) {
+    } catch (err: any) {
       infoPrefix("Tool:filesystem", `Error creating directory: ${err.message}`);
       return `Error creating directory: ${err.message}`;
     }
@@ -167,7 +167,7 @@ class FileSystemTool extends Tool {
       );
       await Deno.remove(dirPath, { recursive });
       return `Successfully deleted directory: ${dirPath}`;
-    } catch (err) {
+    } catch (err: any) {
       infoPrefix("Tool:filesystem", `Error deleting directory: ${err.message}`);
       return `Error deleting directory: ${err.message}`;
     }
@@ -184,7 +184,7 @@ class FileSystemTool extends Tool {
       }
 
       return JSON.stringify(files);
-    } catch (err) {
+    } catch (err: any) {
       infoPrefix("Tool:filesystem", `Error listing files: ${err.message}`);
       return `Error listing files: ${err.message}`;
     }

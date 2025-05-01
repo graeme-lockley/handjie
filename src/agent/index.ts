@@ -75,7 +75,7 @@ export abstract class Agent {
           console.log(answer);
           answer = await this.model.generateResponse("Please continue.");
         }
-      } catch (e) {
+      } catch (e: any) {
         // Handle JSON parsing errors
         debugPrefix(this.model.getModelName(), `Error parsing JSON: ${e}`);
         debugPrefix(this.model.getModelName(), answer);

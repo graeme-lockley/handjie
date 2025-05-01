@@ -38,13 +38,13 @@ async function execCommand(
     const stderr = decoder.decode(result.stderr);
 
     return { stdout, stderr };
-  } catch (error) {
+  } catch (error: unknown) {
     // Clear the timeout on error as well
     if (timeoutId !== undefined) {
       clearTimeout(timeoutId);
     }
 
-    if (error.message === "ETIMEDOUT") {
+    if (error instanceof Error && error.message === "ETIMEDOUT") {
       throw { code: "ETIMEDOUT", message: "Command execution timed out" };
     }
 

@@ -57,10 +57,8 @@ class OllamaModel implements Model {
 export const ollamaModel = (
   name: string,
   description: string,
-  contextSize: number,
 ) => ({
   name,
   description,
   factory: () => new OllamaModel(name),
-  contextSize,
 });

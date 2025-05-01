@@ -25,7 +25,7 @@ function toString(value: any): string {
 /**
  * Helper function to format arguments with specified color
  */
-function formatArgs(args: any[], color: chalk.ChalkFunction): any[] {
+function formatArgs(args: any[], color: chalk.ChalkFunction): string[] {
   return args.map((arg) => {
     if (arg === null || arg === undefined) {
       return color("");

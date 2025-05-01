@@ -88,7 +88,7 @@ class WebTool extends Tool {
       let parsedHeaders: Record<string, string> = {};
       try {
         parsedHeaders = JSON.parse(headers);
-      } catch (err) {
+      } catch (err: any) {
         return `Error parsing headers: ${err.message}`;
       }
 
@@ -120,7 +120,7 @@ class WebTool extends Tool {
 
       // Return response with status code
       return `Status: ${response.status} ${response.statusText}\n\n${responseData}`;
-    } catch (err) {
+    } catch (err: any) {
       infoPrefix("Tool:web", `Error making request: ${err.message}`);
       return `Error making request: ${err.message}`;
     }
@@ -137,7 +137,7 @@ class WebTool extends Tool {
       
       const html = await response.text();
       return html;
-    } catch (err) {
+    } catch (err: any) {
       infoPrefix("Tool:web", `Error fetching HTML: ${err.message}`);
       return `Error fetching HTML: ${err.message}`;
     }
@@ -157,7 +157,7 @@ class WebTool extends Tool {
       
       // Basic HTML to Markdown conversion
       // This is a simple implementation - for production, consider using a proper HTML-to-Markdown library
-      let markdown = html
+      const markdown = html
         // Strip scripts, styles, and other non-content elements
         .replace(/<script\b[^<]*(?:(?!<\/script>)<[^<]*)*<\/script>/gi, '')
         .replace(/<style\b[^<]*(?:(?!<\/style>)<[^<]*)*<\/style>/gi, '')
@@ -184,12 +184,12 @@ class WebTool extends Tool {
         .replace(/<a[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, '[$2]($1)')
         
         // Convert lists
-        .replace(/<ul[^>]*>(.*?)<\/ul>/gis, function(match, content) {
+        .replace(/<ul[^>]*>(.*?)<\/ul>/gis, function(_match: string, content: string) {
           return content.replace(/<li[^>]*>(.*?)<\/li>/gi, '- $1\n');
         })
-        .replace(/<ol[^>]*>(.*?)<\/ol>/gis, function(match, content) {
+        .replace(/<ol[^>]*>(.*?)<\/ol>/gis, function(_match: string, content: string) {
           let index = 1;
-          return content.replace(/<li[^>]*>(.*?)<\/li>/gi, function(match, item) {
+          return content.replace(/<li[^>]*>(.*?)<\/li>/gi, function(_match: string, item: string) {
             return `${index++}. ${item}\n`;
           });
         })
@@ -217,7 +217,7 @@ class WebTool extends Tool {
         .trim();
       
       return markdown;
-    } catch (err) {
+    } catch (err: any) {
       infoPrefix("Tool:web", `Error converting to Markdown: ${err.message}`);
       return `Error converting to Markdown: ${err.message}`;
     }

@@ -42,7 +42,7 @@ async function execCommand(
     const stderr = decoder.decode(result.stderr);
 
     return { stdout, stderr };
-  } catch (error) {
+  } catch (error: any) {
     // Clear the timeout on error as well
     if (timeoutId !== undefined) {
       clearTimeout(timeoutId);
