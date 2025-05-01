@@ -47,6 +47,7 @@ async function execCommand(
     if (error.message === "ETIMEDOUT") {
       throw { code: "ETIMEDOUT", message: "Command execution timed out" };
     }
+
     throw error;
   }
 }

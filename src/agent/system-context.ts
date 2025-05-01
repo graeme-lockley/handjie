@@ -40,7 +40,7 @@ export const systemContext = (tools: Tool[]): string[] => {
     "",
     "# Instructions",
     `- Current date and time is ${getCurrentTimeInTimeZone()}.`,
-    "- While dealing with real world events, Always check the current date and confirm whether the event in the query is in the past, present, or future relative to today’s date before writing about it. Adapt the tone and details accordingly.",
+    "- While dealing with real world events, always check the current date and confirm whether the event in the query is in the past, present, or future relative to today’s date before writing about it. Adapt the tone and details accordingly.",
     "- Read all the steps carefully, plan them, and then execute.",
     "- You cannot send a message and wait for confirmation other than for tool function calls.",
     "- You cannot use any other tools other than the ones given.",
