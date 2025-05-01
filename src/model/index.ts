@@ -1,5 +1,6 @@
 import { Model, ModelDescription } from "./types.ts";
 import { ollamaModel } from "./ollama.ts";
+import { claudeModel } from "./claude.ts";
 
 class ModelManager {
   private models: ModelDescription[];
@@ -47,6 +48,24 @@ const modelManager = new ModelManager([
     "qwen2.5-coder:14b",
     "A specialized coding assistant model with exceptional proficiency in programming languages, debugging tasks, and software development assistance. Its strengths are precise, syntactically correct code generation, detailed code explanations, and effective debugging suggestions. However, Qwen2.5-Coder tends to be less effective in general conversational use-cases, creative content generation, or tasks requiring broad domain knowledge outside software development.",
     32768,
+  ),
+  claudeModel(
+    "claude-3.7-sonnet",
+    "Claude Sonnet 3.7 is Anthropic's advanced AI assistant, offering exceptional reasoning, creativity, and nuanced responses. It excels at complex tasks, follows detailed instructions precisely, and maintains context well. Best for sophisticated content creation, in-depth analysis, and professional communications requiring a balance of insight and efficiency.",
+    {
+      modelId: "claude-3-7-sonnet-latest",
+      apiKey: Deno.env.get("ANTHROPIC_API_KEY") || "",
+      temperature: 0.0,
+    },
+  ),
+  claudeModel(
+    "claude-3.5-sonnet",
+    "Claude Sonnet 3.5 is Anthropic's advanced AI assistant, offering exceptional reasoning, creativity, and nuanced responses. It excels at complex tasks, follows detailed instructions precisely, and maintains context well. Best for sophisticated content creation, in-depth analysis, and professional communications requiring a balance of insight and efficiency.",
+    {
+      modelId: "claude-3-5-haiku-latest",
+      apiKey: Deno.env.get("ANTHROPIC_API_KEY") || "",
+      temperature: 0.0,
+    },
   ),
 ]);
 

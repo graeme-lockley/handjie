@@ -45,6 +45,7 @@ export const systemContext = (tools: Tool[]): string[] => {
     "- You cannot send a message and wait for confirmation other than for tool function calls.",
     "- You cannot use any other tools other than the ones given.",
     "- Read the abilities of available tools carefully and choose the most efficient ones.",
+    "- Please respond with a single JSON object.",
   ]);
 };
 

@@ -9,6 +9,7 @@ export type ModelDescription = {
   description: string;
   factory: () => Model;
   contextSize: number;
+  properties?: Record<string, unknown>;
 };
 
 export type Message = {

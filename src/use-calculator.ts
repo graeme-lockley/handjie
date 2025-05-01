@@ -1,4 +1,4 @@
-#!/usr/bin/env deno run --allow-net
+#!/usr/bin/env deno run --allow-net --allow-env
 
 import LLM from "./model/index.ts";
 import { tools } from "./tools/index.ts";
@@ -7,16 +7,16 @@ import { systemContext } from "./agent/system-context.ts";
 const DEBUG = true;
 
 async function main() {
-  const model = LLM.newModel("llama3.1:latest")!;
+  const model = LLM.newModel("claude-3.5-sonnet")!;
 
-  console.log(`Connecting to Ollama ${model.getModelName()}...`);
+  console.log(`Connecting to ${model.getModelName()}...`);
 
   model.systemMessage(
     systemContext(tools).join("\n"),
   );
 
   let answer = await model.generateResponse(
-    "What is the day of the month and can you add 2 to it?  For example, if the date is December 6th, 2023, the answer should be 8 after adding 2 days.",
+    "What is the day of the month and can you add 42 to it?  For example, if the date is December 6th, 2023, the answer should be 8 after adding 2 days.",
   );
 
   while (true) {
@@ -44,36 +44,41 @@ async function main() {
           const args = jsonAnswer.use_tool.args;
 
           if (tool.functionMap[functionName]) {
-            const toolResult = await tool.functionMap[functionName](...args);
-            answer = await model.generateResponse(`Tool result: ${toolResult}`);
+            try {
+              const toolResult = await tool.functionMap[functionName](...args);
+              answer = await model.generateResponse(
+                `Tool result: ${toolResult}`,
+              );
+            } catch (e) {
+              answer = await model.generateResponse(`Function error: ${e}.`);
+            }
           } else {
-            console.error(
+            answer = await model.generateResponse(
               `Function ${functionName} not found in tool ${tool.name}`,
             );
-            break;
           }
         } else {
-          console.error(
+          answer = await model.generateResponse(
             `Tool with identifier ${jsonAnswer.use_tool.identifier} not found`,
           );
-          break;
         }
       } else if (jsonAnswer.task_completed) {
         console.log("Task completed.");
         break;
       } else if (typeof jsonAnswer !== "object") {
         console.log(jsonAnswer);
-        break;
+        answer = await model.generateResponse("Please continue.");
       } else {
         console.log(answer);
-        break;
+        answer = await model.generateResponse("Please continue.");
       }
     } catch (e) {
       if (DEBUG) {
         console.error("Error parsing JSON:", e);
       }
-      console.log(answer);
-      break;
+      answer = await model.generateResponse(
+        `Error parsing JSON: ${e.message}. Please provide a valid JSON response.`,
+      );
     }
   }
 }
