@@ -79,7 +79,7 @@ class WebTool extends Tool {
       const headers = args.length > 2 && typeof args[2] === "string" ? args[2] : "{}";
       const body = args.length > 3 && typeof args[3] === "string" ? args[3] : "";
 
-      return this.restCall(url, method, headers, body);
+      return await this.restCall(url, method, headers, body);
     },
 
     fetchHtml: async (...args: unknown[]): Promise<string> => {
@@ -88,7 +88,7 @@ class WebTool extends Tool {
       }
       const url = args[0] as string;
 
-      return this.fetchHtml(url);
+      return await this.fetchHtml(url);
     },
 
     fetchMarkdown: async (...args: unknown[]): Promise<string> => {
@@ -97,17 +97,7 @@ class WebTool extends Tool {
       }
       const url = args[0] as string;
 
-      return this.fetchMarkdown(url);
-    },
-
-    search: async (...args: unknown[]): Promise<string> => {
-      if (args.length === 0 || typeof args[0] !== "string") {
-        return "Error: Query must be a string";
-      }
-      const query = args[0] as string;
-      const numResults = args.length > 1 && typeof args[1] === "number" ? args[1] : 5;
-
-      return this.search(query, numResults);
+      return await this.fetchMarkdown(url);
     },
   };
 
@@ -262,15 +252,6 @@ class WebTool extends Tool {
       const errorMessage = err instanceof Error ? err.message : String(err);
       infoPrefix("Tool:web", `Error converting to Markdown: ${errorMessage}`);
       return `Error converting to Markdown: ${errorMessage}`;
-    }
-  }
-
-  search(query: string, numResults: number = 5): string {
-    try {
-      return "Search functionality not implemented yet.";
-    } catch (err: unknown) {
-      const errorMessage = err instanceof Error ? err.message : String(err);
-      return `Error searching: ${errorMessage}`;
     }
   }
 }

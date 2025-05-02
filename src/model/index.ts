@@ -12,7 +12,15 @@ class ModelManager {
   }
 
   private getModelByName(name: string): ModelDescription | undefined {
-    return this.models.find((model) => model.name === name);
+    // Try to find exact match first
+    const exactMatch = this.models.find((model) => model.name === name);
+    if (exactMatch) {
+      return exactMatch;
+    }
+
+    // If no exact match, try to find a model where the name starts with the given name
+    // This allows using "llama3.2" instead of "llama3.2:latest"
+    return this.models.find((model) => model.name.startsWith(name + ":"));
   }
 
   public newModel(name: string): Model | undefined {

@@ -6,12 +6,12 @@ export type ResponseMessage = {
   function_calls?: FunctionCall[];
 };
 
-export type FunctionCall {
+export type FunctionCall = {
   tool: string;
   correlationId: string;
   function: string;
-  arguments: string[];
-}
+  args: string[];
+};
 
 /**
  * ResponseParser class for parsing model responses in various formats
@@ -95,9 +95,6 @@ export class ResponseParser {
             scanner.skipWhitespace();
             const args = parseArguments(scanner);
 
-            // Remember where the tool call ends
-            const toolCallEnd = scanner.position;
-
             // Skip to the next line
             let textAfterToolCall = "";
             while (!scanner.eof() && scanner.peek() !== "\n") {
@@ -167,7 +164,7 @@ export class ResponseParser {
               tool: toolName,
               correlationId,
               function: functionName,
-              arguments: parsedArgs,
+              args: parsedArgs,
             });
           } else {
             // If there's no function call after the tool name, just add it to content
@@ -266,7 +263,6 @@ class Scanner {
   }
 
   public findEndOfLine(): number {
-    const startPos = this.position;
     while (!this.eof() && this.peek() !== "\n") {
       this.position++;
     }

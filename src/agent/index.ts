@@ -24,7 +24,11 @@ export class Agent {
     tools: Tools.Tool[] | undefined = undefined,
   ) {
     this.name = name;
-    this.model = LLM.newModel(modelName)!;
+    const model = LLM.newModel(modelName);
+    if (!model) {
+      throw new Error(`Model "${modelName}" not found. Please check the model name and try again.`);
+    }
+    this.model = model;
     this.tools = tools || Tools.tools;
 
     // Set up the system context for the model
@@ -157,7 +161,7 @@ export class Agent {
   private async processTool(toolUsage: FunctionCall): Promise<ToolResponse> {
     const toolIdentifier = toolUsage.tool;
     const functionName = toolUsage.function;
-    const args = toolUsage.arguments;
+    const args = toolUsage.args;
 
     // Find the requested tool
     const tool = this.tools.find((t) => t.identifier === toolIdentifier);

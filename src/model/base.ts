@@ -1,4 +1,4 @@
-import { Context, Model } from "./types.ts";
+import { Context, Model, type ToolResponses } from "./types.ts";
 
 /**
  * Base Model class with context management capabilities
@@ -32,6 +32,6 @@ export abstract class BaseModel implements Model {
     this.context = [];
   }
 
-  public abstract generateResponse(prompt: string): Promise<string>;
+  public abstract generateResponse(prompt: string | ToolResponses): Promise<string>;
   public abstract getModelName(): string;
 }

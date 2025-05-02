@@ -1,7 +1,6 @@
 // Tests for response-parser.ts
 import { assertEquals } from "https://deno.land/std/testing/asserts.ts";
 import { ResponseMessage, ResponseParser } from "./response-parser.ts";
-import { assert } from "node:console";
 
 Deno.test("ResponseParser - basic content without function call", () => {
   const rawResponse = "This is a simple text response without any tool calls.";
@@ -28,7 +27,7 @@ Deno.test("ResponseParser - with function call", () => {
   assertEquals(result.function_calls?.[0].tool, "search");
   assertEquals(result.function_calls?.[0].correlationId, "test-correlation-id");
   assertEquals(result.function_calls?.[0].function, "execute");
-  assertEquals(result.function_calls?.[0].arguments, ['"query term"']);
+  assertEquals(result.function_calls?.[0].args, ['"query term"']);
 });
 
 Deno.test("ResponseParser - done signal", () => {
@@ -54,7 +53,7 @@ Deno.test("ResponseParser - multiple function arguments", () => {
   assertEquals(result.function_calls?.[0].tool, "calculator");
   assertEquals(result.function_calls?.[0].correlationId, "test-correlation-id");
   assertEquals(result.function_calls?.[0].function, "add");
-  assertEquals(result.function_calls?.[0].arguments, ["5", "10", "15"]);
+  assertEquals(result.function_calls?.[0].args, ["5", "10", "15"]);
 });
 
 Deno.test("ResponseParser - quoted string arguments", () => {
@@ -69,7 +68,7 @@ Deno.test("ResponseParser - quoted string arguments", () => {
   assertEquals(result.function_calls?.[0].tool, "bash");
   assertEquals(result.function_calls?.[0].correlationId, "test-correlation-id");
   assertEquals(result.function_calls?.[0].function, "execute");
-  assertEquals(result.function_calls?.[0].arguments, [`"echo 'Hello World'"`]);
+  assertEquals(result.function_calls?.[0].args, [`"echo 'Hello World'"`]);
 });
 
 Deno.test("ResponseParser - backtick string arguments", () => {
@@ -84,7 +83,7 @@ Deno.test("ResponseParser - backtick string arguments", () => {
   assertEquals(result.function_calls?.[0].tool, "command");
   assertEquals(result.function_calls?.[0].correlationId, "test-correlation-id");
   assertEquals(result.function_calls?.[0].function, "run");
-  assertEquals(result.function_calls?.[0].arguments, ["`ls -la`"]);
+  assertEquals(result.function_calls?.[0].args, ["`ls -la`"]);
 });
 
 Deno.test("ResponseParser - empty arguments", () => {
@@ -99,7 +98,7 @@ Deno.test("ResponseParser - empty arguments", () => {
   assertEquals(result.function_calls?.[0].tool, "filesystem");
   assertEquals(result.function_calls?.[0].correlationId, "test-correlation-id");
   assertEquals(result.function_calls?.[0].function, "listFiles");
-  assertEquals(result.function_calls?.[0].arguments, []);
+  assertEquals(result.function_calls?.[0].args, []);
 });
 
 Deno.test("ResponseParser - escaped quotes in arguments", () => {
@@ -114,7 +113,7 @@ Deno.test("ResponseParser - escaped quotes in arguments", () => {
   assertEquals(result.function_calls?.[0].tool, "web");
   assertEquals(result.function_calls?.[0].correlationId, "test-correlation-id");
   assertEquals(result.function_calls?.[0].function, "search");
-  assertEquals(result.function_calls?.[0].arguments, ['"""escaped quotes"""']);
+  assertEquals(result.function_calls?.[0].args, ['"""escaped quotes"""']);
 });
 
 Deno.test("ResponseParser - multiple newlines before tool call", () => {
@@ -128,7 +127,7 @@ Deno.test("ResponseParser - multiple newlines before tool call", () => {
   assertEquals(result.function_calls?.[0].tool, "help");
   assertEquals(result.function_calls?.[0].correlationId, "test-correlation-id");
   assertEquals(result.function_calls?.[0].function, "show");
-  assertEquals(result.function_calls?.[0].arguments, ['"commands"']);
+  assertEquals(result.function_calls?.[0].args, ['"commands"']);
 });
 
 Deno.test("ResponseParser - no tool call, just text", () => {
@@ -147,7 +146,7 @@ Deno.test("ResponseParser - no tool call, just text", () => {
   assertEquals(result.function_calls?.[0].tool, "calculator-tool");
   assertEquals(result.function_calls?.[0].correlationId, "test-correlation-id");
   assertEquals(result.function_calls?.[0].function, "calculate");
-  assertEquals(result.function_calls?.[0].arguments, ["1 + 42"]);
+  assertEquals(result.function_calls?.[0].args, ["1 + 42"]);
 });
 
 Deno.test("ResponseParser - multiple tool calls", () => {
@@ -175,19 +174,19 @@ All done!`;
   assertEquals(result.function_calls?.[0].tool, "filesystem");
   assertEquals(result.function_calls?.[0].correlationId, "id-1");
   assertEquals(result.function_calls?.[0].function, "listFiles");
-  assertEquals(result.function_calls?.[0].arguments, ['"."']);
+  assertEquals(result.function_calls?.[0].args, ['"."']);
 
   // Check second function call
   assertEquals(result.function_calls?.[1].tool, "filesystem");
   assertEquals(result.function_calls?.[1].correlationId, "id-2");
   assertEquals(result.function_calls?.[1].function, "write");
-  assertEquals(result.function_calls?.[1].arguments, ['"example.txt"', '"Hello World"']);
+  assertEquals(result.function_calls?.[1].args, ['"example.txt"', '"Hello World"']);
 
   // Check third function call
   assertEquals(result.function_calls?.[2].tool, "filesystem");
   assertEquals(result.function_calls?.[2].correlationId, "id-3");
   assertEquals(result.function_calls?.[2].function, "read");
-  assertEquals(result.function_calls?.[2].arguments, ['"example.txt"']);
+  assertEquals(result.function_calls?.[2].args, ['"example.txt"']);
 });
 
 Deno.test("ResponseParser - tool calls with done signal", () => {
@@ -212,11 +211,11 @@ TOOL:done`;
   assertEquals(result.function_calls?.[0].tool, "command");
   assertEquals(result.function_calls?.[0].correlationId, "id-1");
   assertEquals(result.function_calls?.[0].function, "execute");
-  assertEquals(result.function_calls?.[0].arguments, ['"echo Hello"']);
+  assertEquals(result.function_calls?.[0].args, ['"echo Hello"']);
 
   // Check second function call
   assertEquals(result.function_calls?.[1].tool, "bash");
   assertEquals(result.function_calls?.[1].correlationId, "id-2");
   assertEquals(result.function_calls?.[1].function, "execute");
-  assertEquals(result.function_calls?.[1].arguments, ['"date"']);
+  assertEquals(result.function_calls?.[1].args, ['"date"']);
 });

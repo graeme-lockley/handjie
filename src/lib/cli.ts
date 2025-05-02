@@ -4,7 +4,7 @@ import chalk from "npm:chalk";
 type ChalkFunction = (text: string) => string;
 
 // Fix DEBUG environment variable access
-const DEBUG = true || Deno.env.get("DEBUG") === "true";
+const DEBUG = false || Deno.env.get("DEBUG") === "true" || Deno.env.get("HANDJIE_DEBUG") === "true";
 
 export function debugging(): boolean {
   return DEBUG;
