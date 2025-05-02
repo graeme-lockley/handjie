@@ -85,7 +85,7 @@ export class Agent {
         const context = (this.model as any).getContext();
         await Deno.writeTextFile(path, JSON.stringify(context, null, 2));
         info(`Context saved to ${path}`);
-      } catch (e) {
+      } catch (e: any) {
         info(`Error saving context: ${e.message}`);
       }
     } else {
@@ -104,7 +104,7 @@ export class Agent {
         const context = JSON.parse(contextText) as Context;
         (this.model as any).setContext(context);
         info(`Context loaded from ${path}`);
-      } catch (e) {
+      } catch (e: any) {
         if (e instanceof Deno.errors.NotFound) {
           info(`No previous context found at ${path}`);
         } else {
@@ -156,7 +156,9 @@ export class Agent {
         try {
           // Execute the tool function
           const toolResult = await tool.functionMap[functionName](...args);
-          return await this.generateResponse(`Tool result: ${toolResult}`);
+          return await this.generateResponse(
+            `Tool result: ${toolIdentifier}.${functionName}(${args.map((arg) => JSON.stringify(arg)).join(", ")}) -> ${toolResult}`,
+          );
         } catch (e) {
           return await this.generateResponse(`Function error: ${e}.`);
         }
