@@ -25,7 +25,11 @@ class AgentCLI {
       Deno.mkdirSync(configDir, { recursive: true });
     } catch (e) {
       if (!(e instanceof Deno.errors.AlreadyExists)) {
-        console.error(`Error creating config directory: ${e.message}`);
+        if (e instanceof Error) {
+          console.error(`Error creating config directory: ${e.message}`);
+        } else {
+          console.error("Error creating config directory:", e);
+        }
       }
     }
 

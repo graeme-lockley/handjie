@@ -1,5 +1,18 @@
 import { debugPrefix } from "../lib/cli.ts";
 
+export type ResponseMessage = {
+  done: boolean;
+  content: string;
+  function_calls?: FunctionCall[];
+};
+
+export type FunctionCall {
+  tool: string;
+  correlationId: string;
+  function: string;
+  arguments: string[];
+}
+
 /**
  * ResponseParser class for parsing model responses in various formats
  * into a standardized JSON structure
@@ -21,9 +34,14 @@ export class ResponseParser {
    */
   public parse(): ResponseMessage {
     const scanner = new Scanner(this.rawResponse);
+    let content = "";
+    const functionCalls: FunctionCall[] = [];
+    let isDone = false;
 
     while (!scanner.eof()) {
-      scanner.skipWhitespace();
+      const lineStart = scanner.position;
+
+      // Check if the current position has a TOOL: prefix
       if (scanner.hasPrefix("TOOL:")) {
         const toolStart = scanner.position;
         scanner.position += 5; // Skip "TOOL:"
@@ -34,10 +52,29 @@ export class ResponseParser {
         const fullToolIdentifier = scanner.nextUntil(["(", " ", ".", "\n"]);
 
         if (fullToolIdentifier === "done") {
-          return {
-            done: true,
-            content: this.rawResponse.substring(0, toolStart),
-          };
+          isDone = true;
+          // Add the content before this done signal
+          content += this.rawResponse.substring(lineStart, toolStart);
+
+          // Format the content to ensure proper spacing before task completed message
+          if (!content.endsWith("\n\n")) {
+            if (content.endsWith("\n")) {
+              content += "\n"; // Add one more newline to create a blank line
+            } else {
+              content += "\n\n"; // Add two newlines if content doesn't end with any
+            }
+          }
+
+          // Add a human-readable description
+          content += "[Task completed]";
+
+          // Skip to the next line
+          while (!scanner.eof() && scanner.peek() !== "\n") {
+            scanner.next();
+          }
+          if (!scanner.eof()) {
+            scanner.next(); // Skip the newline
+          }
         } else {
           // Check if the tool identifier contains a correlationId (format: correlationId:toolName)
           let toolName = fullToolIdentifier;
@@ -58,47 +95,112 @@ export class ResponseParser {
             scanner.skipWhitespace();
             const args = parseArguments(scanner);
 
-            return {
-              done: false,
-              content: this.rawResponse.substring(0, toolStart),
-              function_call: {
-                tool: toolName,
-                correlationId,
-                function: functionName,
-                arguments: args.map((arg) => eval(arg)),
-              },
-            };
+            // Remember where the tool call ends
+            const toolCallEnd = scanner.position;
+
+            // Skip to the next line
+            let textAfterToolCall = "";
+            while (!scanner.eof() && scanner.peek() !== "\n") {
+              textAfterToolCall += scanner.next();
+            }
+
+            // Add the content before this tool call
+            content += this.rawResponse.substring(lineStart, toolStart);
+
+            // Format the content to ensure proper spacing before tool call
+            if (!content.endsWith("\n\n")) {
+              if (content.endsWith("\n")) {
+                content += "\n"; // Add one more newline to create a blank line
+              } else {
+                content += "\n\n"; // Add two newlines if content doesn't end with any
+              }
+            }
+
+            // Create a readable description of the tool call
+            const parsedArgs = args.map((arg) => {
+              try {
+                // We want to display escaped quotes with double quotes instead of backslashes
+                return arg.replace(/\\"/g, '""');
+              } catch {
+                // If something goes wrong, return the raw string
+                return arg;
+              }
+            });
+            const argsString = args.join(", ");
+            content += `[Using ${toolName}.${functionName}(${argsString})]`;
+
+            // Add any text that was on the same line after the tool call
+            if (textAfterToolCall.trim().length > 0) {
+              // If there's text on the same line as the tool call,
+              // ensure we have a double newline for proper spacing
+              content += "\n\n" + textAfterToolCall;
+            }
+
+            // If we're not at EOF and we just finished processing a tool call,
+            // ensure we properly format the text that follows
+            if (!scanner.eof()) {
+              scanner.next(); // Skip the newline
+
+              // Check if there's another newline - this would be a blank line after the tool call
+              const hasBlankLineAfterTool = !scanner.eof() && scanner.peek() === "\n";
+
+              // If there's text following the tool call (either immediately or after a blank line),
+              // ensure there's proper spacing
+              if (!scanner.eof()) {
+                if (hasBlankLineAfterTool) {
+                  // There's already a blank line in the source, preserve it
+                  scanner.next(); // Skip the second newline
+                  content += "\n\n"; // Add the blank line to the output
+                } else if (!scanner.eof() && scanner.peek() !== "\n") {
+                  // No blank line in source but there's text, add proper spacing
+                  if (!content.endsWith("\n")) {
+                    content += "\n\n";
+                  } else if (!content.endsWith("\n\n")) {
+                    content += "\n";
+                  }
+                }
+              }
+            }
+
+            // Add this function call to our collection
+            functionCalls.push({
+              tool: toolName,
+              correlationId,
+              function: functionName,
+              arguments: parsedArgs,
+            });
+          } else {
+            // If there's no function call after the tool name, just add it to content
+            content += this.rawResponse.substring(lineStart, scanner.position);
+            // Continue to the next line
+            while (!scanner.eof() && scanner.peek() !== "\n") {
+              scanner.next();
+            }
+            if (!scanner.eof()) {
+              scanner.next(); // Skip the newline
+            }
           }
         }
       } else {
-        while (!scanner.eof() && scanner.peek() !== "\n") {
-          scanner.next();
+        // Handle regular text lines (non-tool calls)
+        const lineEnd = scanner.findEndOfLine();
+        content += this.rawResponse.substring(lineStart, lineEnd);
+
+        // Directly move the scanner position to lineEnd instead of resetting it
+        scanner.position = lineEnd;
+
+        if (!scanner.eof()) {
+          content += scanner.next(); // Add the newline character to the content
         }
-        scanner.next(); // Skip the newline
       }
     }
 
     return {
-      done: false,
-      content: this.rawResponse,
+      done: isDone,
+      content: content,
+      ...(functionCalls.length > 0 ? { function_calls: functionCalls } : {}),
     };
   }
-}
-
-export type ResponseMessage = {
-  done: boolean;
-  content: string;
-  function_call?: FunctionCall;
-};
-
-/**
- * Type definitions for function calls
- */
-export interface FunctionCall {
-  tool: string;
-  correlationId: string;
-  function: string;
-  arguments: unknown[];
 }
 
 class Scanner {
@@ -120,6 +222,7 @@ class Scanner {
   public hasPrefix(prefix: string): boolean {
     return this.input.startsWith(prefix, this.position);
   }
+
   public nextUntil(delimiters: string[]): string {
     let result = "";
     while (!this.eof()) {
@@ -161,6 +264,14 @@ class Scanner {
     }
     this.position++;
   }
+
+  public findEndOfLine(): number {
+    const startPos = this.position;
+    while (!this.eof() && this.peek() !== "\n") {
+      this.position++;
+    }
+    return this.position; // Return current position without resetting
+  }
 }
 
 function parseArguments(scanner: Scanner): string[] {
@@ -184,6 +295,7 @@ function parseArguments(scanner: Scanner): string[] {
     } else if (scanner.peek() === ")") {
       if (depth === 0) {
         args.push(scanner.slice(argStart, scanner.position));
+        scanner.next(); // Skip the closing )
         break;
       } else {
         depth--;
@@ -238,8 +350,4 @@ function parseArguments(scanner: Scanner): string[] {
   }
 
   return args;
-}
-
-function generateCorrelationId(): string {
-  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }

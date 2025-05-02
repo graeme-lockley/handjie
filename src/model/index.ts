@@ -1,7 +1,7 @@
 import { type Model, type ModelDescription } from "./types.ts";
 import { ollamaModel } from "./ollama.ts";
 import { claudeModel } from "./claude.ts";
-export { type Context, type Message, type Model, type ModelDescription } from "./types.ts";
+export { type Context, type Message, type Model, type ModelDescription, type ToolResponse, type ToolResponses } from "./types.ts";
 export { BaseModel } from "./base.ts";
 
 class ModelManager {

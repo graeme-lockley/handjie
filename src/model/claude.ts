@@ -1,4 +1,4 @@
-import { Message, Model } from "./types.ts";
+import { Message, Model, ToolResponses } from "./types.ts";
 import { Anthropic } from "npm:@anthropic-ai/sdk";
 import { BaseModel } from "./base.ts";
 
@@ -26,7 +26,7 @@ class ClaudeModel extends BaseModel implements Model {
     return this.name;
   }
 
-  public async generateResponse(prompt: string): Promise<string> {
+  public async generateResponse(prompt: string | ToolResponses): Promise<string> {
     const newMessage: Message = { role: "user", content: prompt };
     this.context.push(newMessage);
 
@@ -37,7 +37,7 @@ class ClaudeModel extends BaseModel implements Model {
         .filter((msg) => msg.role !== "system")
         .map((msg) => ({
           role: msg.role as "user" | "assistant",
-          content: msg.content,
+          content: typeof msg.content === "object" ? JSON.stringify(msg.content) : msg.content,
         }));
 
       const response = await this.client.messages.create({

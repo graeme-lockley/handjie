@@ -1,6 +1,6 @@
 export interface Model {
   systemMessage(message: string): void;
-  generateResponse(prompt: string): Promise<string>;
+  generateResponse(prompt: string | ToolResponses): Promise<string>;
   getModelName(): string;
 }
 
@@ -13,7 +13,18 @@ export type ModelDescription = {
 
 export type Message = {
   role: "system" | "user" | "assistant";
-  content: string;
+  content: string | ToolResponses;
 };
 
 export type Context = Message[];
+
+export type ToolResponses = {
+  type: "tool_responses";
+  responses: ToolResponse[];
+};
+
+export type ToolResponse = {
+  correlationId: string;
+  success: boolean;
+  content: string;
+};

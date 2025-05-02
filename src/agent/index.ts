@@ -3,7 +3,7 @@ import * as Tools from "../tools/index.ts";
 import { systemContext } from "./system-context.ts";
 import { debugPrefix, info, response } from "../lib/cli.ts";
 import { type FunctionCall, type ResponseMessage, ResponseParser } from "./response-parser.ts";
-import { Context } from "../model/types.ts";
+import { Context, type ToolResponse, type ToolResponses } from "../model/types.ts";
 
 /**
  * Abstract Agent class that provides the core functionality for all specialized agents
@@ -53,10 +53,10 @@ export class Agent {
         }
 
         // Handle tool usage
-        if (responseMessage.function_call !== undefined) {
-          answer = await this.processTool(responseMessage.function_call!);
-        } // Handle task completion
-        else if (responseMessage.done) {
+        if (responseMessage.function_calls !== undefined) {
+          const answers: ToolResponses = await this.processTools(responseMessage.function_calls!);
+          answer = await this.generateResponse(answers);
+        } else if (responseMessage.done) {
           info("Task completed.");
           break;
         } // Handle any other responses, including non-object and plain text
@@ -130,7 +130,7 @@ export class Agent {
     }
   }
 
-  private async generateResponse(prompt: string): Promise<string> {
+  private async generateResponse(prompt: string | ToolResponses): Promise<string> {
     debugPrefix(this.model.getModelName() + " prompt", prompt);
     const answer = await this.model.generateResponse(prompt);
     debugPrefix(this.model.getModelName() + " response", answer);
@@ -138,12 +138,23 @@ export class Agent {
     return answer;
   }
 
+  private async processTools(toolUsages: FunctionCall[]): Promise<ToolResponses> {
+    const results: ToolResponse[] = [];
+
+    for (const toolUsage of toolUsages) {
+      const result = await this.processTool(toolUsage);
+      results.push(result);
+    }
+
+    return { type: "tool_responses", responses: results };
+  }
+
   /**
    * Processes a tool execution request
    * @param toolUsage The tool usage information
    * @returns The model's response after tool execution
    */
-  private async processTool(toolUsage: FunctionCall): Promise<string> {
+  private async processTool(toolUsage: FunctionCall): Promise<ToolResponse> {
     const toolIdentifier = toolUsage.tool;
     const functionName = toolUsage.function;
     const args = toolUsage.arguments;
@@ -154,19 +165,16 @@ export class Agent {
     if (tool) {
       if (tool.functionMap[functionName]) {
         try {
-          // Execute the tool function
-          const toolResult = await tool.functionMap[functionName](...args);
-          return await this.generateResponse(
-            `Tool result: ${toolIdentifier}.${functionName}(${args.map((arg) => JSON.stringify(arg)).join(", ")}) -> ${toolResult}`,
-          );
+          const toolResult = await tool.functionMap[functionName](...args.map((arg) => eval(arg)));
+          return { correlationId: toolUsage.correlationId, success: true, content: toolResult };
         } catch (e) {
-          return await this.generateResponse(`Function error: ${e}.`);
+          return { correlationId: toolUsage.correlationId, success: false, content: `Function error: ${e instanceof Error ? e.message : String(e)}` };
         }
       } else {
-        return await this.generateResponse(`Function ${functionName} not found in tool ${tool.name}`);
+        return { correlationId: toolUsage.correlationId, success: false, content: `Function ${functionName} not found in tool ${tool.name}` };
       }
     } else {
-      return await this.generateResponse(`Tool with identifier ${toolIdentifier} not found`);
+      return { correlationId: toolUsage.correlationId, success: false, content: `Tool with identifier ${toolIdentifier} not found` };
     }
   }
 }
