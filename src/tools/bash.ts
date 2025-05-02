@@ -1,4 +1,4 @@
-import { Tool, ToolFunctionSpec } from "./types.ts";
+import { FunctionMap, Tool, ToolFunctionSpec } from "./types.ts";
 import { infoPrefix } from "./../lib/cli.ts";
 
 /**
@@ -75,11 +75,20 @@ class Bash extends Tool {
     },
   ];
 
-  functionMap = {
-    execute: this.execute.bind(this),
+  functionMap: FunctionMap = {
+    execute: async (...args: unknown[]): Promise<string> => {
+      // Validate and convert the arguments
+      if (args.length === 0 || typeof args[0] !== "string") {
+        return "Error: Command must be a string";
+      }
+      const command = args[0] as string;
+
+      // Call the actual implementation
+      return await this.execute(command);
+    },
   };
 
-  async execute(command: string) {
+  async execute(command: string): Promise<string> {
     try {
       // Execute command and wait for completion
       infoPrefix("Tool:bash", command);
@@ -92,13 +101,10 @@ class Bash extends Tool {
       }
 
       return stdout;
-    } catch (error: any) {
-      infoPrefix("Tool:bash", `error: ${error}`);
-      // Handle any errors that occurred during execution
-      if (error.code === "ETIMEDOUT") {
-        return "Command timed out. Maybe because it needed an input from you, which is impossible as per your first instruction. Remember - interactive prompts are not supported. You must find alternative ways to run the command or use a different command!";
-      }
-      return "Command execution failed: " + error.message;
+    } catch (error: unknown) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      infoPrefix("Tool:bash", `Error executing bash command: ${errorMessage}`);
+      return `Error executing bash command: ${errorMessage}`;
     }
   }
 }

@@ -16,7 +16,7 @@ Deno.test("ResponseParser - basic content without function call", () => {
 });
 
 Deno.test("ResponseParser - with function call", () => {
-  const rawResponse = 'I\'ll search for that information.\n\nTOOL:search.execute("query term")';
+  const rawResponse = 'I\'ll search for that information.\n\nTOOL:test-correlation-id:search.execute("query term")';
   const parser = new ResponseParser(rawResponse);
   const result = parser.parse();
 
@@ -25,6 +25,7 @@ Deno.test("ResponseParser - with function call", () => {
     content: "I'll search for that information.\n\n",
     function_call: {
       tool: "search",
+      correlationId: "test-correlation-id",
       function: "execute",
       arguments: ["query term"],
     },
@@ -47,7 +48,7 @@ Deno.test("ResponseParser - done signal", () => {
 });
 
 Deno.test("ResponseParser - multiple function arguments", () => {
-  const rawResponse = "Let me calculate that for you.\n\nTOOL:calculator.add(5, 10, 15)";
+  const rawResponse = "Let me calculate that for you.\n\nTOOL:lkjahsdfliu13987q:calculator.add(5, 10, 15)";
   const parser = new ResponseParser(rawResponse);
   const result = parser.parse();
 
@@ -56,6 +57,7 @@ Deno.test("ResponseParser - multiple function arguments", () => {
     content: "Let me calculate that for you.\n\n",
     function_call: {
       tool: "calculator",
+      correlationId: "lkjahsdfliu13987q",
       function: "add",
       arguments: [5, 10, 15],
     },
@@ -65,7 +67,7 @@ Deno.test("ResponseParser - multiple function arguments", () => {
 });
 
 Deno.test("ResponseParser - quoted string arguments", () => {
-  const rawResponse = "Let me run that command.\n\nTOOL:bash.execute(\"echo 'Hello World'\")";
+  const rawResponse = "Let me run that command.\n\nTOOL:test-correlation-id:bash.execute(\"echo 'Hello World'\")";
   const parser = new ResponseParser(rawResponse);
   const result = parser.parse();
 
@@ -74,6 +76,7 @@ Deno.test("ResponseParser - quoted string arguments", () => {
     content: "Let me run that command.\n\n",
     function_call: {
       tool: "bash",
+      correlationId: "test-correlation-id",
       function: "execute",
       arguments: ["echo 'Hello World'"],
     },
@@ -83,7 +86,7 @@ Deno.test("ResponseParser - quoted string arguments", () => {
 });
 
 Deno.test("ResponseParser - backtick string arguments", () => {
-  const rawResponse = "Let me run this command with backticks.\n\nTOOL:command.run(`ls -la`)";
+  const rawResponse = "Let me run this command with backticks.\n\nTOOL:test-correlation-id:command.run(`ls -la`)";
   const parser = new ResponseParser(rawResponse);
   const result = parser.parse();
 
@@ -92,6 +95,7 @@ Deno.test("ResponseParser - backtick string arguments", () => {
     content: "Let me run this command with backticks.\n\n",
     function_call: {
       tool: "command",
+      correlationId: "test-correlation-id",
       function: "run",
       arguments: ["ls -la"],
     },
@@ -101,7 +105,7 @@ Deno.test("ResponseParser - backtick string arguments", () => {
 });
 
 Deno.test("ResponseParser - empty arguments", () => {
-  const rawResponse = "Let me list all files.\n\nTOOL:filesystem.listFiles()";
+  const rawResponse = "Let me list all files.\n\nTOOL:test-correlation-id:filesystem.listFiles()";
   const parser = new ResponseParser(rawResponse);
   const result = parser.parse();
 
@@ -110,6 +114,7 @@ Deno.test("ResponseParser - empty arguments", () => {
     content: "Let me list all files.\n\n",
     function_call: {
       tool: "filesystem",
+      correlationId: "test-correlation-id",
       function: "listFiles",
       arguments: [],
     },
@@ -119,7 +124,7 @@ Deno.test("ResponseParser - empty arguments", () => {
 });
 
 Deno.test("ResponseParser - escaped quotes in arguments", () => {
-  const rawResponse = 'Let me search for escaped quotes.\n\nTOOL:web.search("\\"escaped quotes\\"")\nSome more text.';
+  const rawResponse = 'Let me search for escaped quotes.\n\nTOOL:test-correlation-id:web.search("\\"escaped quotes\\"")\nSome more text.';
   const parser = new ResponseParser(rawResponse);
   const result = parser.parse();
 
@@ -128,6 +133,7 @@ Deno.test("ResponseParser - escaped quotes in arguments", () => {
     content: "Let me search for escaped quotes.\n\n",
     function_call: {
       tool: "web",
+      correlationId: "test-correlation-id",
       function: "search",
       arguments: ['"escaped quotes"'],
     },
@@ -137,7 +143,7 @@ Deno.test("ResponseParser - escaped quotes in arguments", () => {
 });
 
 Deno.test("ResponseParser - multiple newlines before tool call", () => {
-  const rawResponse = 'Let me help you.\n\n\n\nTOOL:help.show("commands")';
+  const rawResponse = 'Let me help you.\n\n\n\nTOOL:test-correlation-id:help.show("commands")';
   const parser = new ResponseParser(rawResponse);
   const result = parser.parse();
 
@@ -146,6 +152,7 @@ Deno.test("ResponseParser - multiple newlines before tool call", () => {
     content: "Let me help you.\n\n\n\n",
     function_call: {
       tool: "help",
+      correlationId: "test-correlation-id",
       function: "show",
       arguments: ["commands"],
     },
@@ -156,7 +163,7 @@ Deno.test("ResponseParser - multiple newlines before tool call", () => {
 
 Deno.test("ResponseParser - no tool call, just text", () => {
   const rawResponse =
-    "I'll solve this step by step:\n1. The day of the month is 1\n2. I'll add 42 to 1 using the calculator\n\nTOOL:calculator-tool.calculate(1 + 42)\n\nThe result is 43.";
+    "I'll solve this step by step:\n1. The day of the month is 1\n2. I'll add 42 to 1 using the calculator\n\nTOOL:test-correlation-id:calculator-tool.calculate(1 + 42)\n\nThe result is 43.";
   const parser = new ResponseParser(rawResponse);
   const result = parser.parse();
 
@@ -165,6 +172,7 @@ Deno.test("ResponseParser - no tool call, just text", () => {
     content: "I'll solve this step by step:\n1. The day of the month is 1\n2. I'll add 42 to 1 using the calculator\n\n",
     function_call: {
       tool: "calculator-tool",
+      correlationId: "test-correlation-id",
       function: "calculate",
       arguments: [43],
     },

@@ -1,4 +1,4 @@
-import { Tool, ToolFunctionSpec } from "./types.ts";
+import { FunctionMap, Tool, ToolFunctionSpec } from "./types.ts";
 import { infoPrefix } from "./../lib/cli.ts";
 
 class FileSystemTool extends Tool {
@@ -106,13 +106,56 @@ class FileSystemTool extends Tool {
     },
   ];
 
-  functionMap = {
-    read: this.read.bind(this),
-    write: this.write.bind(this),
-    delete: this.delete.bind(this),
-    createDirectory: this.createDirectory.bind(this),
-    deleteDirectory: this.deleteDirectory.bind(this),
-    listFiles: this.listFiles.bind(this),
+  functionMap: FunctionMap = {
+    read: async (...args: unknown[]): Promise<string> => {
+      if (args.length === 0 || typeof args[0] !== "string") {
+        return "Error: File path must be a string";
+      }
+      const filePath = args[0] as string;
+      return await this.read(filePath);
+    },
+
+    write: async (...args: unknown[]): Promise<string> => {
+      if (args.length < 2 || typeof args[0] !== "string" || typeof args[1] !== "string") {
+        return "Error: File path and content must be strings";
+      }
+      const filePath = args[0] as string;
+      const content = args[1] as string;
+      return await this.write(filePath, content);
+    },
+
+    delete: async (...args: unknown[]): Promise<string> => {
+      if (args.length === 0 || typeof args[0] !== "string") {
+        return "Error: File path must be a string";
+      }
+      const filePath = args[0] as string;
+      return await this.delete(filePath);
+    },
+
+    createDirectory: async (...args: unknown[]): Promise<string> => {
+      if (args.length === 0 || typeof args[0] !== "string") {
+        return "Error: Directory path must be a string";
+      }
+      const dirPath = args[0] as string;
+      return await this.createDirectory(dirPath);
+    },
+
+    deleteDirectory: async (...args: unknown[]): Promise<string> => {
+      if (args.length === 0 || typeof args[0] !== "string") {
+        return "Error: Directory path must be a string";
+      }
+      const dirPath = args[0] as string;
+      const recursive = args.length > 1 && typeof args[1] === "boolean" && args[1] === true;
+      return await this.deleteDirectory(dirPath, recursive);
+    },
+
+    listFiles: async (...args: unknown[]): Promise<string> => {
+      if (args.length === 0 || typeof args[0] !== "string") {
+        return "Error: Directory path must be a string";
+      }
+      const dirPath = args[0] as string;
+      return await this.listFiles(dirPath);
+    },
   };
 
   async read(filePath: string): Promise<string> {
@@ -120,9 +163,10 @@ class FileSystemTool extends Tool {
       infoPrefix("Tool:filesystem", `Reading file: ${filePath}`);
       const data = await Deno.readTextFile(filePath);
       return data;
-    } catch (err: any) {
-      infoPrefix("Tool:filesystem", `Error reading file: ${err.message}`);
-      return `Error reading file: ${err.message}`;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      infoPrefix("Tool:filesystem", `Error reading file: ${errorMessage}`);
+      return `Error reading file: ${errorMessage}`;
     }
   }
 
@@ -131,9 +175,10 @@ class FileSystemTool extends Tool {
       infoPrefix("Tool:filesystem", `Writing to file: ${filePath}`);
       await Deno.writeTextFile(filePath, content);
       return `Successfully wrote to file: ${filePath}`;
-    } catch (err: any) {
-      infoPrefix("Tool:filesystem", `Error writing to file: ${err.message}`);
-      return `Error writing to file: ${err.message}`;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      infoPrefix("Tool:filesystem", `Error writing to file: ${errorMessage}`);
+      return `Error writing to file: ${errorMessage}`;
     }
   }
 
@@ -142,9 +187,10 @@ class FileSystemTool extends Tool {
       infoPrefix("Tool:filesystem", `Deleting file: ${filePath}`);
       await Deno.remove(filePath);
       return `Successfully deleted file: ${filePath}`;
-    } catch (err: any) {
-      infoPrefix("Tool:filesystem", `Error deleting file: ${err.message}`);
-      return `Error deleting file: ${err.message}`;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      infoPrefix("Tool:filesystem", `Error deleting file: ${errorMessage}`);
+      return `Error deleting file: ${errorMessage}`;
     }
   }
 
@@ -153,9 +199,10 @@ class FileSystemTool extends Tool {
       infoPrefix("Tool:filesystem", `Creating directory: ${dirPath}`);
       await Deno.mkdir(dirPath, { recursive: true });
       return `Successfully created directory: ${dirPath}`;
-    } catch (err: any) {
-      infoPrefix("Tool:filesystem", `Error creating directory: ${err.message}`);
-      return `Error creating directory: ${err.message}`;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      infoPrefix("Tool:filesystem", `Error creating directory: ${errorMessage}`);
+      return `Error creating directory: ${errorMessage}`;
     }
   }
 
@@ -167,9 +214,10 @@ class FileSystemTool extends Tool {
       );
       await Deno.remove(dirPath, { recursive });
       return `Successfully deleted directory: ${dirPath}`;
-    } catch (err: any) {
-      infoPrefix("Tool:filesystem", `Error deleting directory: ${err.message}`);
-      return `Error deleting directory: ${err.message}`;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      infoPrefix("Tool:filesystem", `Error deleting directory: ${errorMessage}`);
+      return `Error deleting directory: ${errorMessage}`;
     }
   }
 
@@ -184,9 +232,10 @@ class FileSystemTool extends Tool {
       }
 
       return JSON.stringify(files);
-    } catch (err: any) {
-      infoPrefix("Tool:filesystem", `Error listing files: ${err.message}`);
-      return `Error listing files: ${err.message}`;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      infoPrefix("Tool:filesystem", `Error listing files: ${errorMessage}`);
+      return `Error listing files: ${errorMessage}`;
     }
   }
 }

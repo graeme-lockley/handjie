@@ -1,7 +1,7 @@
 #!/usr/bin/env deno run --allow-all
 
 import { Agent } from "./agent/index.ts";
-import { info, response } from "./lib/cli.ts";
+import { info } from "./lib/cli.ts";
 import { parse } from "https://deno.land/std/flags/mod.ts";
 
 // Command-line interface for the agent
@@ -142,9 +142,11 @@ class AgentCLI {
     // Create a new AbortController for this prompt
     this.currentAbortController = new AbortController();
 
+    // Store the original generateResponse method
+    const originalGenerateResponse = this.agent["generateResponse"].bind(this.agent);
+
     try {
       // Patch the agent's generateResponse method to be abortable
-      const originalGenerateResponse = this.agent["generateResponse"].bind(this.agent);
       this.agent["generateResponse"] = async (prompt: string) => {
         if (this.currentAbortController?.signal.aborted) {
           throw new Error("Operation aborted");
@@ -154,17 +156,14 @@ class AgentCLI {
 
       // Process the prompt
       await this.agent.prompt(input);
-
-      // Restore the original method after completion
-      this.agent["generateResponse"] = originalGenerateResponse;
-      this.currentAbortController = null;
     } catch (e) {
-      if (e.message === "Operation aborted") {
+      if (e instanceof Error && e.message === "Operation aborted") {
         info("Operation aborted by user");
       } else {
         console.error("Error processing prompt:", e);
       }
-      // Restore the original method after error
+    } finally {
+      // Always restore the original method, regardless of success or failure
       this.agent["generateResponse"] = originalGenerateResponse;
       this.currentAbortController = null;
     }
@@ -200,7 +199,7 @@ class AgentCLI {
   /**
    * Process key presses including special keys like arrows
    */
-  private async processKeypress(buffer: Uint8Array): Promise<string | null> {
+  private processKeypress(buffer: Uint8Array): string | null {
     // Convert buffer to array of bytes
     const bytes = Array.from(buffer);
 

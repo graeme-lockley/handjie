@@ -18,5 +18,7 @@ export abstract class Tool {
   abstract instructions: string[];
   abstract functions: ToolFunctionSpec[];
 
-  abstract functionMap: { [key: string]: any };
+  abstract functionMap: FunctionMap;
 }
+
+export type FunctionMap = { [key: string]: (...args: unknown[]) => Promise<string> | string };

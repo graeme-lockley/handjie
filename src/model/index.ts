@@ -1,4 +1,4 @@
-import { type Context, type Message, type Model, type ModelDescription } from "./types.ts";
+import { type Model, type ModelDescription } from "./types.ts";
 import { ollamaModel } from "./ollama.ts";
 import { claudeModel } from "./claude.ts";
 export { type Context, type Message, type Model, type ModelDescription } from "./types.ts";

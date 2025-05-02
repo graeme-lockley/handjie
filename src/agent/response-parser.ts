@@ -30,14 +30,26 @@ export class ResponseParser {
 
         scanner.skipWhitespace();
 
-        const toolName = scanner.nextUntil(["(", " ", ".", "\n"]);
+        // Extract the full tool identifier which might include correlationId
+        const fullToolIdentifier = scanner.nextUntil(["(", " ", ".", "\n"]);
 
-        if (toolName === "done") {
+        if (fullToolIdentifier === "done") {
           return {
             done: true,
             content: this.rawResponse.substring(0, toolStart),
           };
         } else {
+          // Check if the tool identifier contains a correlationId (format: correlationId:toolName)
+          let toolName = fullToolIdentifier;
+          let correlationId = "default";
+
+          const parts = fullToolIdentifier.split(":");
+          if (parts.length === 2) {
+            // Extract correlationId and toolName
+            correlationId = parts[0];
+            toolName = parts[1];
+          }
+
           scanner.skipWhitespace();
           if (scanner.peek() === ".") {
             scanner.next(); // Skip the dot
@@ -51,6 +63,7 @@ export class ResponseParser {
               content: this.rawResponse.substring(0, toolStart),
               function_call: {
                 tool: toolName,
+                correlationId,
                 function: functionName,
                 arguments: args.map((arg) => eval(arg)),
               },
@@ -78,11 +91,15 @@ export type ResponseMessage = {
   function_call?: FunctionCall;
 };
 
-export type FunctionCall = {
+/**
+ * Type definitions for function calls
+ */
+export interface FunctionCall {
   tool: string;
+  correlationId: string;
   function: string;
-  arguments: any[];
-};
+  arguments: unknown[];
+}
 
 class Scanner {
   private readonly input: string;
@@ -221,4 +238,8 @@ function parseArguments(scanner: Scanner): string[] {
   }
 
   return args;
+}
+
+function generateCorrelationId(): string {
+  return Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
 }

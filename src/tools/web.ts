@@ -1,4 +1,4 @@
-import { Tool, ToolFunctionSpec } from "./types.ts";
+import { FunctionMap, Tool, ToolFunctionSpec } from "./types.ts";
 import { infoPrefix } from "./../lib/cli.ts";
 
 class WebTool extends Tool {
@@ -69,10 +69,46 @@ class WebTool extends Tool {
     },
   ];
 
-  functionMap = {
-    restCall: this.restCall.bind(this),
-    fetchHtml: this.fetchHtml.bind(this),
-    fetchMarkdown: this.fetchMarkdown.bind(this),
+  functionMap: FunctionMap = {
+    restCall: async (...args: unknown[]): Promise<string> => {
+      if (args.length < 2 || typeof args[0] !== "string" || typeof args[1] !== "string") {
+        return "Error: URL and method must be strings";
+      }
+      const url = args[0] as string;
+      const method = args[1] as string;
+      const headers = args.length > 2 && typeof args[2] === "string" ? args[2] : "{}";
+      const body = args.length > 3 && typeof args[3] === "string" ? args[3] : "";
+
+      return this.restCall(url, method, headers, body);
+    },
+
+    fetchHtml: async (...args: unknown[]): Promise<string> => {
+      if (args.length === 0 || typeof args[0] !== "string") {
+        return "Error: URL must be a string";
+      }
+      const url = args[0] as string;
+
+      return this.fetchHtml(url);
+    },
+
+    fetchMarkdown: async (...args: unknown[]): Promise<string> => {
+      if (args.length === 0 || typeof args[0] !== "string") {
+        return "Error: URL must be a string";
+      }
+      const url = args[0] as string;
+
+      return this.fetchMarkdown(url);
+    },
+
+    search: async (...args: unknown[]): Promise<string> => {
+      if (args.length === 0 || typeof args[0] !== "string") {
+        return "Error: Query must be a string";
+      }
+      const query = args[0] as string;
+      const numResults = args.length > 1 && typeof args[1] === "number" ? args[1] : 5;
+
+      return this.search(query, numResults);
+    },
   };
 
   async restCall(
@@ -88,8 +124,9 @@ class WebTool extends Tool {
       let parsedHeaders: Record<string, string> = {};
       try {
         parsedHeaders = JSON.parse(headers);
-      } catch (err: any) {
-        return `Error parsing headers: ${err.message}`;
+      } catch (err: unknown) {
+        const errorMessage = err instanceof Error ? err.message : String(err);
+        return `Error parsing headers: ${errorMessage}`;
       }
 
       // Create request options
@@ -120,9 +157,10 @@ class WebTool extends Tool {
 
       // Return response with status code
       return `Status: ${response.status} ${response.statusText}\n\n${responseData}`;
-    } catch (err: any) {
-      infoPrefix("Tool:web", `Error making request: ${err.message}`);
-      return `Error making request: ${err.message}`;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      infoPrefix("Tool:web", `Error making request: ${errorMessage}`);
+      return `Error making request: ${errorMessage}`;
     }
   }
 
@@ -137,9 +175,10 @@ class WebTool extends Tool {
 
       const html = await response.text();
       return html;
-    } catch (err: any) {
-      infoPrefix("Tool:web", `Error fetching HTML: ${err.message}`);
-      return `Error fetching HTML: ${err.message}`;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      infoPrefix("Tool:web", `Error fetching HTML: ${errorMessage}`);
+      return `Error fetching HTML: ${errorMessage}`;
     }
   }
 
@@ -219,9 +258,19 @@ class WebTool extends Tool {
         .trim();
 
       return markdown;
-    } catch (err: any) {
-      infoPrefix("Tool:web", `Error converting to Markdown: ${err.message}`);
-      return `Error converting to Markdown: ${err.message}`;
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      infoPrefix("Tool:web", `Error converting to Markdown: ${errorMessage}`);
+      return `Error converting to Markdown: ${errorMessage}`;
+    }
+  }
+
+  search(query: string, numResults: number = 5): string {
+    try {
+      return "Search functionality not implemented yet.";
+    } catch (err: unknown) {
+      const errorMessage = err instanceof Error ? err.message : String(err);
+      return `Error searching: ${errorMessage}`;
     }
   }
 }

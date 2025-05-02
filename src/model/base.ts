@@ -1,4 +1,4 @@
-import { Context, Message, Model } from "./types.ts";
+import { Context, Model } from "./types.ts";
 
 /**
  * Base Model class with context management capabilities

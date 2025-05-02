@@ -63,13 +63,13 @@ export class Agent {
         else {
           answer = await this.generateResponse("You done yet?  If you are then use TOOL:done() to note as done otherwise please continue.");
         }
-      } catch (e: any) {
+      } catch (e: unknown) {
         // Handle JSON parsing errors
         debugPrefix(this.model.getModelName(), `Error parsing response: ${e}`);
         debugPrefix(this.model.getModelName(), answer);
 
         answer = await this.generateResponse(
-          `Error parsing response: ${e.message}`,
+          `Error parsing response: ${e instanceof Error ? e.message : String(e)}`,
         );
       }
     }
@@ -82,11 +82,11 @@ export class Agent {
   public async saveContext(path: string): Promise<void> {
     if (this.model instanceof LLM.BaseModel) {
       try {
-        const context = (this.model as any).getContext();
+        const context = (this.model as LLM.BaseModel).getContext();
         await Deno.writeTextFile(path, JSON.stringify(context, null, 2));
         info(`Context saved to ${path}`);
-      } catch (e: any) {
-        info(`Error saving context: ${e.message}`);
+      } catch (e: unknown) {
+        info(`Error saving context: ${e instanceof Error ? e.message : String(e)}`);
       }
     } else {
       info(`Model ${this.model.getModelName()} does not support context saving`);
@@ -102,13 +102,13 @@ export class Agent {
       try {
         const contextText = await Deno.readTextFile(path);
         const context = JSON.parse(contextText) as Context;
-        (this.model as any).setContext(context);
+        (this.model as LLM.BaseModel).setContext(context);
         info(`Context loaded from ${path}`);
-      } catch (e: any) {
+      } catch (e: unknown) {
         if (e instanceof Deno.errors.NotFound) {
           info(`No previous context found at ${path}`);
         } else {
-          info(`Error loading context: ${e.message}`);
+          info(`Error loading context: ${e instanceof Error ? e.message : String(e)}`);
         }
       }
     } else {
@@ -121,7 +121,7 @@ export class Agent {
    */
   public clearContext(): void {
     if (this.model instanceof LLM.BaseModel) {
-      (this.model as any).clearContext();
+      (this.model as LLM.BaseModel).clearContext();
       // Re-initialize the system message
       this.model.systemMessage(systemContext(this.tools).join("\n"));
       info(`Context cleared for ${this.name}`);
@@ -132,7 +132,7 @@ export class Agent {
 
   private async generateResponse(prompt: string): Promise<string> {
     debugPrefix(this.model.getModelName() + " prompt", prompt);
-    let answer = await this.model.generateResponse(prompt);
+    const answer = await this.model.generateResponse(prompt);
     debugPrefix(this.model.getModelName() + " response", answer);
 
     return answer;
