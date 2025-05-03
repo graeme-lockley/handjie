@@ -7,8 +7,9 @@ export abstract class BaseModel implements Model {
   protected context: Context = [];
   protected systemMessage_: string = "";
 
-  public systemMessage(message: string): void {
-    this.systemMessage_ = message;
+  public systemMessage(message: string | string[]): void {
+    // If message is an array, join it into a single string
+    this.systemMessage_ = Array.isArray(message) ? message.join("\n") : message;
   }
 
   /**

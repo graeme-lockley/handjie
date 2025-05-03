@@ -17,7 +17,12 @@ class AgentCLI {
   private cursorPos = 0;
 
   constructor(agentName: string, modelName: string) {
-    this.agent = new Agent(agentName, modelName);
+    this.agent = new Agent(
+      agentName,
+      "Software Engineering",
+      ["TypeScript developer", "Software tester", "DevOps engineer", "Test Driven Development", "Deno"],
+      modelName,
+    );
     const configDir = `${Deno.env.get("HOME") || Deno.env.get("USERPROFILE") || "."}/.h3`;
 
     // Create config directory if it doesn't exist

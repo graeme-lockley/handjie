@@ -219,3 +219,131 @@ TOOL:done`;
   assertEquals(result.function_calls?.[1].function, "execute");
   assertEquals(result.function_calls?.[1].args, ['"date"']);
 });
+
+// Tests for AGENT command handling
+Deno.test("ResponseParser - basic agent call", () => {
+  const rawResponse = 'I need help from another agent.\n\nAGENT:test-correlation-id:expert-agent("Please analyze this data")';
+  const parser = new ResponseParser(rawResponse);
+  const result = parser.parse();
+
+  // Verify the properties we care about
+  assertEquals(result.done, false);
+  assertEquals(result.content, 'I need help from another agent.\n\n[Delegating to agent expert-agent: "Please analyze this data"]');
+  assertEquals(result.agent_calls?.length, 1);
+  assertEquals(result.agent_calls?.[0].name, "expert-agent");
+  assertEquals(result.agent_calls?.[0].correlationId, "test-correlation-id");
+  assertEquals(result.agent_calls?.[0].message, "Please analyze this data");
+});
+
+Deno.test("ResponseParser - agent call with no correlation ID", () => {
+  const rawResponse = 'Let me ask the math agent.\n\nAGENT:math-agent("What is 42 + 7?")';
+  const parser = new ResponseParser(rawResponse);
+  const result = parser.parse();
+
+  // Verify the properties we care about
+  assertEquals(result.done, false);
+  assertEquals(result.content, 'Let me ask the math agent.\n\n[Delegating to agent math-agent: "What is 42 + 7?"]');
+  assertEquals(result.agent_calls?.length, 1);
+  assertEquals(result.agent_calls?.[0].name, "math-agent");
+  assertEquals(result.agent_calls?.[0].correlationId, "default");
+  assertEquals(result.agent_calls?.[0].message, "What is 42 + 7?");
+});
+
+Deno.test("ResponseParser - agent call with complex message", () => {
+  const rawResponse = 'Let me ask for some code review.\n\nAGENT:id-1:code-reviewer("Please review this function: function add(a, b) { return a + b; }")';
+  const parser = new ResponseParser(rawResponse);
+  const result = parser.parse();
+
+  // Verify the properties we care about
+  assertEquals(result.done, false);
+  assertEquals(
+    result.content,
+    'Let me ask for some code review.\n\n[Delegating to agent code-reviewer: "Please review this function: function add(a, b) { return a + b; }"]',
+  );
+  assertEquals(result.agent_calls?.length, 1);
+  assertEquals(result.agent_calls?.[0].name, "code-reviewer");
+  assertEquals(result.agent_calls?.[0].correlationId, "id-1");
+  assertEquals(result.agent_calls?.[0].message, "Please review this function: function add(a, b) { return a + b; }");
+});
+
+Deno.test("ResponseParser - mixed tool and agent calls", () => {
+  const rawResponse = `I'll perform multiple operations:
+
+First, let me check the files in the current directory.
+TOOL:id-1:filesystem.listFiles(".")
+
+Let me have the security agent check these files.
+AGENT:id-2:security-agent("Please analyze the files for security issues")
+
+Now let me run a command.
+TOOL:id-3:bash.execute("echo Hello World")
+
+All done!`;
+
+  const parser = new ResponseParser(rawResponse);
+  const result = parser.parse();
+
+  // Verify the properties we care about
+  assertEquals(result.done, false);
+  assertEquals(result.function_calls?.length, 2);
+  assertEquals(result.agent_calls?.length, 1);
+
+  // Check tool calls
+  assertEquals(result.function_calls?.[0].tool, "filesystem");
+  assertEquals(result.function_calls?.[0].correlationId, "id-1");
+  assertEquals(result.function_calls?.[0].function, "listFiles");
+  assertEquals(result.function_calls?.[0].args, ['"."']);
+
+  assertEquals(result.function_calls?.[1].tool, "bash");
+  assertEquals(result.function_calls?.[1].correlationId, "id-3");
+  assertEquals(result.function_calls?.[1].function, "execute");
+  assertEquals(result.function_calls?.[1].args, ['"echo Hello World"']);
+
+  // Check agent call
+  assertEquals(result.agent_calls?.[0].name, "security-agent");
+  assertEquals(result.agent_calls?.[0].correlationId, "id-2");
+  assertEquals(result.agent_calls?.[0].message, "Please analyze the files for security issues");
+});
+
+Deno.test("ResponseParser - agent call with empty message", () => {
+  const rawResponse = 'Let me ping the status agent.\n\nAGENT:id-1:status-agent("")';
+  const parser = new ResponseParser(rawResponse);
+  const result = parser.parse();
+
+  // Verify the properties we care about
+  assertEquals(result.done, false);
+  assertEquals(result.content, 'Let me ping the status agent.\n\n[Delegating to agent status-agent: ""]');
+  assertEquals(result.agent_calls?.length, 1);
+  assertEquals(result.agent_calls?.[0].name, "status-agent");
+  assertEquals(result.agent_calls?.[0].correlationId, "id-1");
+  assertEquals(result.agent_calls?.[0].message, "");
+});
+
+Deno.test("ResponseParser - agent call with done signal", () => {
+  const rawResponse = `Let me solve this problem:
+
+First I'll ask the math agent.
+AGENT:id-1:math-agent("What is the formula for the area of a circle?")
+
+Now I'll compile the results.
+TOOL:id-2:filesystem.write("results.txt", "Area = πr²")
+
+TOOL:done`;
+
+  const parser = new ResponseParser(rawResponse);
+  const result = parser.parse();
+
+  // Verify the properties we care about
+  assertEquals(result.done, true);
+  assertEquals(result.function_calls?.length, 1);
+  assertEquals(result.agent_calls?.length, 1);
+
+  assertEquals(result.agent_calls?.[0].name, "math-agent");
+  assertEquals(result.agent_calls?.[0].correlationId, "id-1");
+  assertEquals(result.agent_calls?.[0].message, "What is the formula for the area of a circle?");
+
+  assertEquals(result.function_calls?.[0].tool, "filesystem");
+  assertEquals(result.function_calls?.[0].correlationId, "id-2");
+  assertEquals(result.function_calls?.[0].function, "write");
+  assertEquals(result.function_calls?.[0].args, ['"results.txt"', '"Area = πr²"']);
+});

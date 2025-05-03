@@ -40,10 +40,13 @@ class ClaudeModel extends BaseModel implements Model {
           content: typeof msg.content === "object" ? JSON.stringify(msg.content) : msg.content,
         }));
 
+      // Ensure systemMessage_ is a string - join it if it's an array
+      const systemMessage = Array.isArray(this.systemMessage_) ? this.systemMessage_.join("\n") : this.systemMessage_;
+
       const response = await this.client.messages.create({
         model: this.modelId,
         messages: anthropicMessages,
-        system: this.systemMessage_,
+        system: systemMessage,
         temperature: this.temperature,
         max_tokens: this.maxTokens,
       });

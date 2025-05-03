@@ -9,9 +9,12 @@ import { Context, type ToolResponse, type ToolResponses } from "../model/types.t
  * Abstract Agent class that provides the core functionality for all specialized agents
  */
 export class Agent {
-  protected name: string;
+  public name: string;
+  public bio: string;
+  public skills: string[];
   protected model: LLM.Model;
-  protected tools: Tools.Tool[];
+  public tools: Tools.Tool[];
+  public agents: Agent[];
 
   /**
    * Constructor to initialize an agent with a model and tools
@@ -20,10 +23,16 @@ export class Agent {
    */
   constructor(
     name: string,
+    bio: string,
+    skills: string[],
     modelName: string,
     tools: Tools.Tool[] | undefined = undefined,
+    agents: Agent[] = [],
   ) {
     this.name = name;
+    this.bio = bio;
+    this.skills = skills;
+    this.agents = agents;
     const model = LLM.newModel(modelName);
     if (!model) {
       throw new Error(`Model "${modelName}" not found. Please check the model name and try again.`);
@@ -32,9 +41,7 @@ export class Agent {
     this.tools = tools || Tools.tools;
 
     // Set up the system context for the model
-    this.model.systemMessage(
-      systemContext(this.tools).join("\n"),
-    );
+    this.model.systemMessage(systemContext(this));
   }
 
   /**
@@ -65,7 +72,7 @@ export class Agent {
           break;
         } // Handle any other responses, including non-object and plain text
         else {
-          answer = await this.generateResponse("You done yet?  If you are then use TOOL:done() to note as done otherwise please continue.");
+          answer = await this.generateResponse("You done yet?  If you are then use TOOL:done() to stop.");
         }
       } catch (e: unknown) {
         // Handle JSON parsing errors
@@ -127,7 +134,7 @@ export class Agent {
     if (this.model instanceof LLM.BaseModel) {
       (this.model as LLM.BaseModel).clearContext();
       // Re-initialize the system message
-      this.model.systemMessage(systemContext(this.tools).join("\n"));
+      this.model.systemMessage(systemContext(this));
       info(`Context cleared for ${this.name}`);
     } else {
       info(`Model ${this.model.getModelName()} does not support context clearing`);

@@ -4,6 +4,7 @@ export type ResponseMessage = {
   done: boolean;
   content: string;
   function_calls?: FunctionCall[];
+  agent_calls?: AgentCall[];
 };
 
 export type FunctionCall = {
@@ -11,6 +12,12 @@ export type FunctionCall = {
   correlationId: string;
   function: string;
   args: string[];
+};
+
+export type AgentCall = {
+  name: string;
+  correlationId: string;
+  message: string;
 };
 
 /**
@@ -36,6 +43,7 @@ export class ResponseParser {
     const scanner = new Scanner(this.rawResponse);
     let content = "";
     const functionCalls: FunctionCall[] = [];
+    const agentCalls: AgentCall[] = [];
     let isDone = false;
 
     while (!scanner.eof()) {
@@ -178,8 +186,96 @@ export class ResponseParser {
             }
           }
         }
+      } // Check if the current position has an AGENT: prefix
+      else if (scanner.hasPrefix("AGENT:")) {
+        const agentStart = scanner.position;
+        scanner.position += 6; // Skip "AGENT:"
+
+        scanner.skipWhitespace();
+
+        // Extract the full agent identifier (format: correlationId:agentName)
+        const fullAgentIdentifier = scanner.nextUntil(["(", " ", "\n"]);
+
+        // Parse correlation ID and agent name
+        let agentName = fullAgentIdentifier;
+        let correlationId = "default";
+
+        const parts = fullAgentIdentifier.split(":");
+        if (parts.length === 2) {
+          // Extract correlationId and agentName
+          correlationId = parts[0];
+          agentName = parts[1];
+        }
+
+        scanner.skipWhitespace();
+
+        // Parse the agent message (argument)
+        const args = parseArguments(scanner);
+        const message = args.length > 0 ? args[0] : "";
+
+        // Cleanup the message - remove quotes if they exist
+        const cleanMessage = message.startsWith('"') && message.endsWith('"') ? message.substring(1, message.length - 1) : message;
+
+        // Skip to the next line
+        let textAfterAgentCall = "";
+        while (!scanner.eof() && scanner.peek() !== "\n") {
+          textAfterAgentCall += scanner.next();
+        }
+
+        // Add the content before this agent call
+        content += this.rawResponse.substring(lineStart, agentStart);
+
+        // Format the content to ensure proper spacing before agent call
+        if (!content.endsWith("\n\n")) {
+          if (content.endsWith("\n")) {
+            content += "\n"; // Add one more newline to create a blank line
+          } else {
+            content += "\n\n"; // Add two newlines if content doesn't end with any
+          }
+        }
+
+        // Create a readable description of the agent call
+        content += `[Delegating to agent ${agentName}: "${cleanMessage}"]`;
+
+        // Add any text that was on the same line after the agent call
+        if (textAfterAgentCall.trim().length > 0) {
+          content += "\n\n" + textAfterAgentCall;
+        }
+
+        // If we're not at EOF and we just finished processing an agent call,
+        // ensure we properly format the text that follows
+        if (!scanner.eof()) {
+          scanner.next(); // Skip the newline
+
+          // Check if there's another newline - this would be a blank line after the agent call
+          const hasBlankLineAfterAgent = !scanner.eof() && scanner.peek() === "\n";
+
+          // If there's text following the agent call (either immediately or after a blank line),
+          // ensure there's proper spacing
+          if (!scanner.eof()) {
+            if (hasBlankLineAfterAgent) {
+              // There's already a blank line in the source, preserve it
+              scanner.next(); // Skip the second newline
+              content += "\n\n"; // Add the blank line to the output
+            } else if (!scanner.eof() && scanner.peek() !== "\n") {
+              // No blank line in source but there's text, add proper spacing
+              if (!content.endsWith("\n")) {
+                content += "\n\n";
+              } else if (!content.endsWith("\n\n")) {
+                content += "\n";
+              }
+            }
+          }
+        }
+
+        // Add this agent call to our collection
+        agentCalls.push({
+          name: agentName,
+          correlationId,
+          message: cleanMessage,
+        });
       } else {
-        // Handle regular text lines (non-tool calls)
+        // Handle regular text lines (non-tool calls and non-agent calls)
         const lineEnd = scanner.findEndOfLine();
         content += this.rawResponse.substring(lineStart, lineEnd);
 
@@ -196,6 +292,7 @@ export class ResponseParser {
       done: isDone,
       content: content,
       ...(functionCalls.length > 0 ? { function_calls: functionCalls } : {}),
+      ...(agentCalls.length > 0 ? { agent_calls: agentCalls } : {}),
     };
   }
 }
