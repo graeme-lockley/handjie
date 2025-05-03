@@ -1,47 +1,192 @@
 #!/usr/bin/env deno run --allow-all
 
 import { Agent } from "./agent/index.ts";
-import { info } from "./lib/cli.ts";
+import { PromptScheduler } from "./agent/scheduler.ts";
+import { loadAgentsConfig } from "./config/agents.ts";
+import { debugPrefix, info } from "./lib/cli.ts";
 import { parse } from "https://deno.land/std/flags/mod.ts";
 
-// Command-line interface for the agent
+const DEFAULT_MODEL = "claude-3.5-sonnet"; // Default model name
+
+// Command-line interface for the agent system
 class AgentCLI {
-  private agent: Agent;
+  private primaryAgent: Agent;
+  private scheduler: PromptScheduler;
+  private agents: Map<string, Agent> = new Map();
   private history: string[] = [];
   private historyIndex = 0;
   private historyFile: string;
-  private contextFile: string;
+  private contextDir: string;
   private currentAbortController: AbortController | null = null;
   private readonly MAX_HISTORY = 1000;
   private currentInput = "";
   private cursorPos = 0;
+  private promptInProgress = false;
+  private configuredPrimaryAgentName?: string;
+  private configuredModelName?: string;
 
-  constructor(agentName: string, modelName: string) {
-    this.agent = new Agent(
-      agentName,
-      "Software Engineering",
-      ["TypeScript developer", "Software tester", "DevOps engineer", "Test Driven Development", "Deno"],
-      modelName,
-    );
+  constructor(primaryAgentName?: string, modelName?: string) {
+    // Store the agent name and model name to use when initializing
+    this.configuredPrimaryAgentName = primaryAgentName;
+    this.configuredModelName = modelName;
+
+    // Set up directories for storing context and history
     const configDir = `${Deno.env.get("HOME") || Deno.env.get("USERPROFILE") || "."}/.h3`;
+    this.contextDir = `${configDir}/context`;
 
-    // Create config directory if it doesn't exist
+    // Create config directories if they don't exist
     try {
       Deno.mkdirSync(configDir, { recursive: true });
+      Deno.mkdirSync(this.contextDir, { recursive: true });
     } catch (e) {
       if (!(e instanceof Deno.errors.AlreadyExists)) {
-        if (e instanceof Error) {
-          console.error(`Error creating config directory: ${e.message}`);
-        } else {
-          console.error("Error creating config directory:", e);
-        }
+        console.error(`Error creating config directories: ${e instanceof Error ? e.message : String(e)}`);
       }
     }
 
     this.historyFile = `${configDir}/history`;
-    this.contextFile = `${configDir}/context.json`;
-    this.loadHistory();
-    this.loadContext();
+
+    // Create the scheduler - central coordination point
+    this.scheduler = new PromptScheduler();
+
+    // We'll initialize agents in loadAgents, which will be awaited before any interaction
+    this.primaryAgent = null as unknown as Agent; // Will be set in loadAgents
+  }
+
+  /**
+   * Initialize agents from configuration
+   * This needs to be called before any agent interaction
+   */
+  public async initialize(): Promise<void> {
+    try {
+      await this.loadAgents(this.configuredPrimaryAgentName, this.configuredModelName);
+      await this.loadHistory();
+
+      // Make sure we have a valid primary agent
+      if (!this.primaryAgent) {
+        // Create a fallback agent if loading from config failed
+        this.primaryAgent = new Agent(
+          "Assistant",
+          "A helpful AI assistant.",
+          ["answering questions", "providing information", "helping with tasks"],
+          DEFAULT_MODEL,
+          undefined,
+          [],
+          this.scheduler,
+        );
+        this.agents.set(this.primaryAgent.name, this.primaryAgent);
+        info("Using fallback agent as primary agent due to configuration issues");
+      }
+    } catch (error) {
+      console.error(`Failed to initialize: ${error instanceof Error ? error.message : String(error)}`);
+      // Create a fallback agent if loading failed completely
+      this.primaryAgent = new Agent(
+        "Assistant",
+        "A helpful AI assistant.",
+        ["answering questions", "providing information", "helping with tasks"],
+        DEFAULT_MODEL,
+        undefined,
+        [],
+        this.scheduler,
+      );
+      this.agents.set(this.primaryAgent.name, this.primaryAgent);
+      info("Using fallback agent due to initialization errors");
+    }
+  }
+
+  /**
+   * Load agents from the configuration file
+   */
+  private async loadAgents(primaryAgentName?: string, modelName?: string): Promise<void> {
+    try {
+      const agentConfigs = await loadAgentsConfig();
+
+      // Default model name to use if not specified
+      const defaultModel = modelName || DEFAULT_MODEL;
+
+      if (agentConfigs.length === 0) {
+        // No agents found in configuration, create default agent
+        info("No agents found in agents.yaml, creating default agent");
+        this.primaryAgent = new Agent(
+          primaryAgentName || "Assistant",
+          "A helpful AI assistant.",
+          ["answering questions", "providing information", "helping with tasks"],
+          defaultModel,
+          undefined,
+          [],
+          this.scheduler,
+        );
+        this.agents.set(this.primaryAgent.name, this.primaryAgent);
+        return;
+      }
+
+      // Use the first agent from the config as primary agent, or the one specified by name
+      const primaryConfig = primaryAgentName ? agentConfigs.find((a) => a.name === primaryAgentName) || agentConfigs[0] : agentConfigs[0];
+
+      // Create the primary agent - use either the config's model name, the provided model name,
+      // or fallback to a default model
+      const primaryModelName = primaryConfig.modelName || defaultModel;
+
+      try {
+        this.primaryAgent = new Agent(
+          primaryConfig.name,
+          primaryConfig.bio,
+          primaryConfig.skills,
+          primaryModelName,
+          undefined, // Use default tools
+          primaryConfig.aware_of || [],
+          this.scheduler,
+        );
+
+        // Add the primary agent to the agents map
+        this.agents.set(this.primaryAgent.name, this.primaryAgent);
+
+        // Load primary agent's context if available
+        await this.loadAgentContext(this.primaryAgent.name);
+
+        info(`Using ${this.primaryAgent.name} as primary agent with model ${primaryModelName}`);
+      } catch (error) {
+        throw new Error(`Failed to initialize primary agent: ${error instanceof Error ? error.message : String(error)}`);
+      }
+
+      // Create and load the rest of the agents from config
+      for (const config of agentConfigs) {
+        // Skip if this agent is already the primary agent
+        if (config.name === this.primaryAgent.name) {
+          continue;
+        }
+
+        try {
+          // Create a new agent from the config
+          const agentModelName = config.modelName || defaultModel;
+          const agent = new Agent(
+            config.name,
+            config.bio,
+            config.skills,
+            agentModelName,
+            undefined, // Use default tools
+            config.aware_of || [],
+            this.scheduler,
+          );
+
+          // Add to the agents map
+          this.agents.set(agent.name, agent);
+
+          // Load agent's context if available
+          await this.loadAgentContext(agent.name);
+
+          info(`Loaded agent: ${config.name} with model ${agentModelName}`);
+        } catch (e) {
+          // Log error but continue with other agents
+          info(`Error loading agent ${config.name}: ${e instanceof Error ? e.message : String(e)}`);
+        }
+      }
+
+      debugPrefix("CLI", `Loaded ${this.agents.size} agents in total (including primary)`);
+    } catch (e) {
+      info(`Error loading agents: ${e instanceof Error ? e.message : String(e)}`);
+      throw e; // Re-throw to handle in initialize()
+    }
   }
 
   /**
@@ -65,15 +210,38 @@ class AgentCLI {
   /**
    * Load agent context from file
    */
-  private async loadContext(): Promise<void> {
-    await this.agent.loadContext(this.contextFile);
+  private async loadAgentContext(agentName: string): Promise<void> {
+    const contextFile = `${this.contextDir}/${agentName.toLowerCase()}.json`;
+    const agent = this.agents.get(agentName);
+
+    if (agent) {
+      await agent.loadContext(contextFile);
+    } else {
+      info(`Agent ${agentName} not found, can't load context`);
+    }
   }
 
   /**
    * Save agent context to file
    */
-  private async saveContext(): Promise<void> {
-    await this.agent.saveContext(this.contextFile);
+  private async saveAgentContext(agentName: string): Promise<void> {
+    const contextFile = `${this.contextDir}/${agentName.toLowerCase()}.json`;
+    const agent = this.agents.get(agentName);
+
+    if (agent) {
+      await agent.saveContext(contextFile);
+    } else {
+      info(`Agent ${agentName} not found, can't save context`);
+    }
+  }
+
+  /**
+   * Save all agent contexts
+   */
+  private async saveAllContexts(): Promise<void> {
+    const promises = Array.from(this.agents.keys()).map((name) => this.saveAgentContext(name));
+    await Promise.all(promises);
+    info("All agent contexts saved");
   }
 
   /**
@@ -106,18 +274,62 @@ class AgentCLI {
    */
   private processSpecialCommands(input: string): boolean {
     const trimmedInput = input.trim();
+    const parts = trimmedInput.split(" ");
+    const command = parts[0];
 
-    if (trimmedInput === "/clear") {
-      this.agent.clearContext();
+    if (command === "/clear") {
+      // Clear context for all agents or a specific agent
+      if (parts.length > 1) {
+        const agentName = parts[1];
+        const agent = this.agents.get(agentName);
+        if (agent) {
+          agent.clearContext();
+        } else {
+          info(`Agent ${agentName} not found`);
+        }
+      } else {
+        // Clear all agents if no specific agent mentioned
+        for (const agent of this.agents.values()) {
+          agent.clearContext();
+        }
+      }
       return true;
     }
 
-    if (trimmedInput === "/help") {
+    if (command === "/agents") {
+      // List all available agents
+      info("Available agents:");
+      for (const [name, agent] of this.agents.entries()) {
+        info(`  ${name} - ${agent.bio}`);
+      }
+      return true;
+    }
+
+    if (command === "/use") {
+      // Change the primary agent
+      if (parts.length > 1) {
+        const agentName = parts[1];
+        const agent = this.agents.get(agentName);
+        if (agent) {
+          this.primaryAgent = agent;
+          info(`Now using ${agentName} as the primary agent`);
+        } else {
+          info(`Agent ${agentName} not found`);
+        }
+      } else {
+        info("Current primary agent: " + this.primaryAgent.name);
+      }
+      return true;
+    }
+
+    if (command === "/help") {
       info("Available commands:");
-      info("  /clear - Clear the agent's conversation context");
-      info("  /help  - Show this help message");
-      info("  exit   - Exit the application");
-      info("  quit   - Exit the application");
+      info("  /clear [agent] - Clear conversation context (for all agents or a specific one)");
+      info("  /agents        - List all available agents");
+      info("  /use [agent]   - Change the primary agent");
+      info("  /help          - Show this help message");
+      info("  exit           - Exit the application");
+      info("  quit           - Exit the application");
       return true;
     }
 
@@ -135,7 +347,7 @@ class AgentCLI {
     }
 
     if (input.toLowerCase() === "exit" || input.toLowerCase() === "quit") {
-      await this.saveContext();
+      await this.saveAllContexts();
       return false; // Exit the REPL loop
     }
 
@@ -148,34 +360,9 @@ class AgentCLI {
 
     await this.saveToHistory(input);
 
-    // Create a new AbortController for this prompt
-    this.currentAbortController = new AbortController();
+    this.primaryAgent.prompt(input);
 
-    // Store the original generateResponse method
-    const originalGenerateResponse = this.agent["generateResponse"].bind(this.agent);
-
-    try {
-      // Patch the agent's generateResponse method to be abortable
-      this.agent["generateResponse"] = async (prompt: string) => {
-        if (this.currentAbortController?.signal.aborted) {
-          throw new Error("Operation aborted");
-        }
-        return await originalGenerateResponse(prompt);
-      };
-
-      // Process the prompt
-      await this.agent.prompt(input);
-    } catch (e) {
-      if (e instanceof Error && e.message === "Operation aborted") {
-        info("Operation aborted by user");
-      } else {
-        console.error("Error processing prompt:", e);
-      }
-    } finally {
-      // Always restore the original method, regardless of success or failure
-      this.agent["generateResponse"] = originalGenerateResponse;
-      this.currentAbortController = null;
-    }
+    await this.scheduler.processQueue();
 
     return true; // Continue the REPL loop
   };
@@ -198,7 +385,7 @@ class AgentCLI {
     // Clear the current line
     Deno.stdout.writeSync(new TextEncoder().encode("\r\x1b[K"));
     // Render the prompt and current input
-    Deno.stdout.writeSync(new TextEncoder().encode("> " + this.currentInput));
+    Deno.stdout.writeSync(new TextEncoder().encode(`${this.primaryAgent.name}> ${this.currentInput}`));
     // Position the cursor
     if (this.cursorPos < this.currentInput.length) {
       Deno.stdout.writeSync(new TextEncoder().encode(`\x1b[${this.currentInput.length - this.cursorPos}D`));
@@ -293,6 +480,14 @@ class AgentCLI {
    * Read a line of input with history support
    */
   private async readLineWithHistory(): Promise<string> {
+    // Wait for any in-progress prompts to complete before accepting new input
+    if (this.promptInProgress) {
+      info("Waiting for current prompt to complete...");
+      while (this.promptInProgress) {
+        await new Promise((resolve) => setTimeout(resolve, 500));
+      }
+    }
+
     // Set terminal to raw mode
     Deno.stdin.setRaw(true);
 
@@ -327,7 +522,8 @@ class AgentCLI {
     // Set up Ctrl+C handler
     Deno.addSignalListener("SIGINT", this.handleInterrupt);
 
-    console.log(`🤖 H3 Agent CLI - Type '/help' for commands or 'exit' to end session`);
+    console.log(`🤖 H3 Multi-Agent CLI - Using ${this.primaryAgent.name} as primary agent`);
+    console.log(`Type '/help' for commands, '/agents' to list available agents, or 'exit' to end session`);
 
     let continueLoop = true;
 
@@ -337,7 +533,7 @@ class AgentCLI {
     }
 
     // Save context before exiting
-    await this.saveContext();
+    await this.saveAllContexts();
 
     // Clean up signal handler
     Deno.removeSignalListener("SIGINT", this.handleInterrupt);
@@ -348,10 +544,11 @@ class AgentCLI {
 // Parse command line arguments
 const args = parse(Deno.args, {
   string: ["name", "model"],
-  default: { name: "Assistant", model: "claude-3.5-sonnet" },
+  default: { name: undefined, model: DEFAULT_MODEL },
   alias: { n: "name", m: "model" },
 });
 
 // Start the CLI
 const cli = new AgentCLI(args.name, args.model);
+await cli.initialize();
 await cli.start();

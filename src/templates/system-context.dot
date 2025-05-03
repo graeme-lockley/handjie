@@ -24,10 +24,10 @@ Respond only in **Markdown** using the format below.
 
 ## 🛠 Tools
 Use this syntax:
-TOOL:<unique_id>:<tool_identifier>.<function_name>({ "arg1": "value", ... })
+TOOL:<unique_id>:<tool_identifier>.<function_name>(parameter1, parameter2, ..., parametern)
 
 Example:
-TOOL:123:file-system.write({ "path": "index.ts", "content": "console.log('Hello')" })
+TOOL:123:file-system.write("index.ts", "console.log('Hello')")
 
 {{~it.tools :tool}}
 ### {{=tool.name}}
@@ -49,6 +49,14 @@ AGENT:<unique_id>:<agent_name>("Your full message here.")
 Example:
 AGENT:456:Typer("Please initialize a new Deno project with basic flight physics.")
 
+To **respond to a prompt from another agent**, you must also use the AGENT syntax.
+
+Example:
+AGENT:456:Manager("Initialised new Deno project")
+
+When responding, note that the correlation number needs to be provided to allow the requesting
+agent to link it back.
+
 {{~it.agents :agent}}
 ### {{=agent.name}}
 - Bio: {{=agent.bio}}
@@ -57,9 +65,8 @@ AGENT:456:Typer("Please initialize a new Deno project with basic flight physics.
 ---
 
 ## 📁 Project Context
-- Project type: Deno (TypeScript)
-- Root directory: `/Users/graemel/Projects/h3`
-- Deno test flag: `--allow-env`
+- Project type: TypeScript using node and npm
+- Root directory: `/Users/graemel/Projects/h3/t`
 - Current date/time: {{=it.currentTime}}
 
 You do not share memory with other agents. Provide full context when messaging them.

@@ -2,24 +2,48 @@ import * as LLM from "../model/index.ts";
 import * as Tools from "../tools/index.ts";
 import { systemContext } from "./system-context.ts";
 import { debugPrefix, info, response } from "../lib/cli.ts";
-import { type FunctionCall, type ResponseMessage, ResponseParser } from "./response-parser.ts";
+import { type AgentCall, type FunctionCall, type ResponseMessage, ResponseParser } from "./response-parser.ts";
 import { Context, type ToolResponse, type ToolResponses } from "../model/types.ts";
+import { PromptScheduler } from "./scheduler.ts";
 
-/**
- * Abstract Agent class that provides the core functionality for all specialized agents
- */
+export interface AgentConfig {
+  name: string;
+  bio: string;
+  skills: string[];
+  aware_of?: string[];
+  modelName?: string;
+}
+
+export interface PromptQueueItem {
+  agent: Agent;
+  prompt: string | ToolResponses;
+  sourceAgent: Agent | undefined;
+  correlationId: string | undefined;
+}
+
+export interface AgentResponse {
+  content: string;
+  sourceAgent: Agent;
+  correlationId: string;
+}
+
 export class Agent {
   public name: string;
   public bio: string;
   public skills: string[];
-  protected model: LLM.Model;
+  public model: LLM.Model;
   public tools: Tools.Tool[];
-  public agents: Agent[];
+  public awareOf: string[] = [];
+  private scheduler: PromptScheduler;
 
   /**
    * Constructor to initialize an agent with a model and tools
+   * @param name The agent's name
+   * @param bio The agent's biography/description
+   * @param skills The agent's skills
    * @param modelName The name of the model to use
    * @param tools Array of tools the agent can use
+   * @param awareOf Names of other agents this agent is aware of
    */
   constructor(
     name: string,
@@ -27,12 +51,13 @@ export class Agent {
     skills: string[],
     modelName: string,
     tools: Tools.Tool[] | undefined = undefined,
-    agents: Agent[] = [],
+    awareOf: string[] = [],
+    scheduler: PromptScheduler,
   ) {
     this.name = name;
     this.bio = bio;
     this.skills = skills;
-    this.agents = agents;
+    this.awareOf = awareOf;
     const model = LLM.newModel(modelName);
     if (!model) {
       throw new Error(`Model "${modelName}" not found. Please check the model name and try again.`);
@@ -40,50 +65,65 @@ export class Agent {
     this.model = model;
     this.tools = tools || Tools.tools;
 
+    this.scheduler = scheduler;
+
     // Set up the system context for the model
     this.model.systemMessage(systemContext(this));
   }
 
   /**
-   * Executes the agent's task
+   * Handles a prompt from the scheduler or directly from the user
+   * This is used by the scheduler to process prompts from the queue
+   *
+   * @param prompt The prompt to process
+   * @param correlationId An identifier for tracking this prompt
+   * @param sourceAgent The agent that sent this prompt (if applicable)
    */
-  public async prompt(prompt: string): Promise<void> {
-    // Start the conversation with the initial prompt
-    let answer = await this.generateResponse(prompt);
-
-    // Main processing loop
-    while (true) {
-      try {
-        // Parse the response using the ResponseParser
-        const parser = new ResponseParser(answer);
-
-        // Handle response messages
-        const responseMessage: ResponseMessage = parser.parse();
-        if (responseMessage) {
-          response(this.name, responseMessage.content);
-        }
-
-        // Handle tool usage
-        if (responseMessage.function_calls !== undefined) {
-          const answers: ToolResponses = await this.processTools(responseMessage.function_calls!);
-          answer = await this.generateResponse(answers);
-        } else if (responseMessage.done) {
-          info("Task completed.");
-          break;
-        } // Handle any other responses, including non-object and plain text
-        else {
-          answer = await this.generateResponse("You done yet?  If you are then use TOOL:done() to stop.");
-        }
-      } catch (e: unknown) {
-        // Handle JSON parsing errors
-        debugPrefix(this.model.getModelName(), `Error parsing response: ${e}`);
-        debugPrefix(this.model.getModelName(), answer);
-
-        answer = await this.generateResponse(
-          `Error parsing response: ${e instanceof Error ? e.message : String(e)}`,
-        );
-      }
+  public async handlePrompt(
+    prompt: string | ToolResponses,
+    correlationId: string | undefined,
+    sourceAgent: Agent | undefined,
+  ): Promise<void> {
+    if (correlationId && sourceAgent) {
+      await this.processPromptWithResult(
+        `Prompt from agent ${sourceAgent.name} with correlation ${correlationId}.  Please respond directly to the agent with AGENT:${correlationId}:${sourceAgent.name}(...message...) when you have completed the task.  You may ask the agent clarifying questions.\n\n${prompt}`,
+      );
+    } else {
+      await this.processPromptWithResult(prompt);
     }
+  }
+
+  /**
+   * Process a prompt and return the result without displaying in console
+   * Used by the scheduler for agent-to-agent communication
+   */
+  private async processPromptWithResult(prompt: string | ToolResponses): Promise<void> {
+    const answer = await this.generateResponse(prompt);
+
+    try {
+      // Parse the response
+      const parser = new ResponseParser(answer);
+      const responseMessage: ResponseMessage = parser.parse();
+
+      response(this.name, responseMessage.content);
+
+      // Handle tool calls
+      if (responseMessage.function_calls) {
+        await this.processTools(responseMessage.function_calls);
+      }
+
+      // Handle agent calls
+      if (responseMessage.agent_calls && this.scheduler) {
+        this.processAgentCalls(responseMessage.agent_calls);
+      }
+    } catch (e: unknown) {
+      // Log error
+      debugPrefix(this.model.getModelName(), `Error in processPromptWithResult: ${e}`);
+    }
+  }
+
+  public prompt(prompt: string): void {
+    this.scheduler.schedulePrompt(this, prompt);
   }
 
   /**
@@ -149,7 +189,7 @@ export class Agent {
     return answer;
   }
 
-  private async processTools(toolUsages: FunctionCall[]): Promise<ToolResponses> {
+  private async processTools(toolUsages: FunctionCall[]): Promise<void> {
     const results: ToolResponse[] = [];
 
     for (const toolUsage of toolUsages) {
@@ -157,7 +197,7 @@ export class Agent {
       results.push(result);
     }
 
-    return { type: "tool_responses", responses: results };
+    this.scheduler?.schedulePrompt(this, { type: "tool_responses", responses: results });
   }
 
   /**
@@ -186,6 +226,20 @@ export class Agent {
       }
     } else {
       return { correlationId: toolUsage.correlationId, success: false, content: `Tool with identifier ${toolIdentifier} not found` };
+    }
+  }
+
+  /**
+   * Process agent calls by sending prompts to other agents
+   */
+  private processAgentCalls(agentCalls: AgentCall[]): void {
+    for (const agentCall of agentCalls) {
+      this.scheduler.schedulePrompt(
+        agentCall.name,
+        agentCall.message,
+        agentCall.correlationId,
+        this,
+      );
     }
   }
 }
