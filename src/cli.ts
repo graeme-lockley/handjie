@@ -3,7 +3,7 @@
 import { Agent } from "./agent/index.ts";
 import { PromptScheduler } from "./agent/scheduler.ts";
 import { loadAgentsConfig } from "./config/agents.ts";
-import { debugPrefix, info } from "./lib/cli.ts";
+import { debugPrefix, info, stopSpinner } from "./lib/cli.ts";
 import { parse } from "https://deno.land/std/flags/mod.ts";
 
 const DEFAULT_MODEL = "claude-3.5-sonnet"; // Default model name
@@ -371,11 +371,27 @@ class AgentCLI {
    * Handle Ctrl+C interruption
    */
   private handleInterrupt = (): void => {
+    // Check if an abort controller is active and abort it
     if (this.currentAbortController) {
       this.currentAbortController.abort();
       this.currentAbortController = null;
     }
-    // We'll let the process continue and return to the prompt
+    
+    // Reset the promptInProgress flag to ensure we're not stuck waiting
+    this.promptInProgress = false;
+    
+    // Clear the spinner if it's active
+    if (typeof spinner !== 'undefined' && spinner.isSpinning) {
+      stopSpinner();
+    }
+    
+    // Add a new line and reset the input
+    Deno.stdout.writeSync(new TextEncoder().encode("\n"));
+    this.currentInput = "";
+    this.cursorPos = 0;
+    
+    // Re-render the prompt to indicate we're ready for new input
+    console.log(`\n${this.primaryAgent.name}> `);
   };
 
   /**

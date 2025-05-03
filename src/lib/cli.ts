@@ -1,13 +1,50 @@
 import chalk from "npm:chalk";
+import ora from "npm:ora";
 
 // Type declaration for chalk function
 type ChalkFunction = (text: string) => string;
+
+// Global spinner instance for CLI operations
+const spinner = ora({
+  color: "grey",
+  spinner: "dots",
+  text: "",
+});
 
 // Fix DEBUG environment variable access
 const DEBUG = false || Deno.env.get("DEBUG") === "true" || Deno.env.get("HANDJIE_DEBUG") === "true";
 
 export function debugging(): boolean {
   return DEBUG;
+}
+
+// Spinner management functions
+export function startSpinner(text: string): void {
+  spinner.start(text + "\n");
+}
+
+export function updateSpinner(text: string): void {
+  spinner.text = text;
+}
+
+export function stopSpinner(text?: string): void {
+  if (text) {
+    spinner.succeed(text);
+  } else {
+    // Use succeed() with the current text to show a green tick
+    spinner.succeed();
+  }
+
+  // Ensure we have a newline after the spinner by writing directly to stdout
+  // Force a flush by writing with a sync operation
+  Deno.stdout.writeSync(new TextEncoder().encode("\n"));
+}
+
+export function failSpinner(text: string): void {
+  spinner.fail(text);
+
+  // Ensure we have a newline after the spinner by writing directly to stdout
+  Deno.stdout.writeSync(new TextEncoder().encode("\n"));
 }
 
 function toString(value: unknown): string {
@@ -179,8 +216,11 @@ export function response(name: string, ...args: unknown[]) {
     // Render the markdown
     const renderedLines = renderMarkdown(message);
 
-    // Print agent name once
+    // Print agent name once with appropriate spacing
     console.log(chalk.green(name));
+
+    // Add a small separator line between agent name and content for clearer separation
+    console.log("");
 
     // Print all rendered lines
     renderedLines.forEach((line) => {

@@ -1,6 +1,7 @@
 import { Agent, type PromptQueueItem } from "./index.ts";
-import { debugPrefix, info } from "../lib/cli.ts";
+import { debugPrefix, failSpinner, info, startSpinner, stopSpinner } from "../lib/cli.ts";
 import { ToolResponses } from "../model/index.ts";
+import chalk from "npm:chalk";
 
 /**
  * PromptScheduler manages a FIFO queue of prompts for different agents
@@ -43,12 +44,10 @@ export class PromptScheduler {
         }
       } else {
         this.promptQueue.push({ agent: foundAgent, prompt, sourceAgent, correlationId });
-        info(`Scheduled prompt for agent ${foundAgent.name}${sourceAgent ? ` from ${sourceAgent}` : ""}`);
       }
     } else {
       // Add prompt to queue
       this.promptQueue.push({ agent, prompt, sourceAgent, correlationId });
-      info(`Scheduled prompt for agent ${agent.name}${sourceAgent ? ` from ${sourceAgent}` : ""}`);
     }
   }
 
@@ -57,19 +56,50 @@ export class PromptScheduler {
    * This is the main loop that handles all agent interactions
    */
   public async processQueue(): Promise<void> {
+    // Terminal width estimation (or default to 80 if can't be determined)
+    const terminalWidth = Deno.isatty(Deno.stdout.rid) ? (Deno.consoleSize?.().columns || 80) : 80;
+    const maxPromptLength = Math.floor(terminalWidth * 2 / 3);
+
     while (this.promptQueue.length > 0) {
       // Get the next prompt from the queue
       const nextPrompt = this.promptQueue.shift()!;
 
       try {
-        info(`Processing prompt for agent ${nextPrompt.agent.name}`);
+        // Get agent name and extract prompt text for display
+        const agentName = nextPrompt.agent.name;
+        const sourceInfo = nextPrompt.sourceAgent ? ` (from ${nextPrompt.sourceAgent.name})` : "";
+
+        // Extract the first line of the prompt and limit its length
+        let promptText = "";
+        if (typeof nextPrompt.prompt === "string") {
+          // Get first line only
+          promptText = nextPrompt.prompt.split("\n")[0].trim();
+          // Truncate if too long
+          if (promptText.length > maxPromptLength) {
+            promptText = promptText.substring(0, maxPromptLength) + "...";
+          }
+        } else if (nextPrompt.prompt.type === "tool_responses") {
+          promptText = "Processing tool responses...";
+        }
+
+        // Format the spinner text with the agent name in light grey
+        const spinnerText = `${chalk.gray.bold(agentName)}${chalk.gray(sourceInfo)}: ${chalk.gray(promptText)}`;
+
+        // Start spinner with agent name and prompt preview
+        startSpinner(spinnerText);
 
         // Process the prompt with the target agent
         await nextPrompt.agent.handlePrompt(nextPrompt.prompt, nextPrompt.correlationId, nextPrompt.sourceAgent);
+
+        // Stop spinner on successful completion
+        stopSpinner();
       } catch (error) {
         const errorMessage = (error instanceof Error) ? error.message : String(error);
 
-        info(`Error processing prompt for agent ${nextPrompt.agent.name}: ${errorMessage}`);
+        // Show error in spinner
+        failSpinner(`Error with agent ${nextPrompt.agent.name}: ${errorMessage}`);
+
+        // Schedule error message back to agent
         this.schedulePrompt(nextPrompt.agent, `Error processing prompt: ${errorMessage}`, nextPrompt.correlationId, nextPrompt.sourceAgent);
       }
     }
